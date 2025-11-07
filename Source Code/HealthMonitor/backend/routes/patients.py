@@ -10,7 +10,16 @@ def get_patient(patient_id):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
-    cursor.execute("SELECT * FROM `Patients` WHERE patient_id = %s", (patient_id,))
+    # === BẮT ĐẦU CẬP NHẬT ===
+    # SỬA: JOIN với bảng Doctors để lấy doctor_name
+    cursor.execute("""
+        SELECT p.*, d.full_name as doctor_name 
+        FROM `Patients` p
+        LEFT JOIN `Doctors` d ON p.doctor_id = d.doctor_id
+        WHERE p.patient_id = %s
+    """, (patient_id,))
+    # === KẾT THÚC CẬP NHẬT ===
+    
     patient = cursor.fetchone()
 
     cursor.close()

@@ -7,6 +7,7 @@
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
+/* ... CSS không đổi ... */
 body {font-family: Arial, sans-serif;}
 .sidebar {width: 220px; position: fixed; top:0; left:0; height:100%; background:#343a40; padding-top:20px;}
 .sidebar .nav-link {color:#fff; display:block; padding:10px;}
@@ -14,11 +15,47 @@ body {font-family: Arial, sans-serif;}
 .content {margin-left:230px; padding:20px;}
 .card {margin-bottom:15px;}
 .tab-content {margin-top:15px;}
+
+/* CSS cho User Profile Box */
+.user-profile {
+  text-align: center;
+  padding: 15px;
+  border-bottom: 1px solid #495057; /* Đường viền mờ */
+  margin-bottom: 10px;
+}
+.user-profile img {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: #fff;
+  padding: 5px;
+  margin-bottom: 10px;
+}
+.user-profile h5 {
+  color: #fff;
+  font-weight: bold;
+  font-size: 1.1rem;
+  margin-bottom: 3px;
+}
+.user-profile p {
+  color: #adb5bd; /* Màu xám nhạt */
+  font-size: 0.9rem;
+  margin-bottom: 0;
+  text-transform: capitalize; /* Viết hoa chữ cái đầu */
+}
 </style>
 </head>
 <body>
 
 <div class="sidebar" id="sidebar">
+    <!-- MỚI: User Profile Box -->
+    <div class="user-profile">
+        
+        <h5 id="userProfileName">Đang tải...</h5>
+        <p id="userProfileRole">Quản lý</p>
+    </div>
+    <!-- Kết thúc User Profile Box -->
+
     <a href="#" class="nav-link active" data-tab="doctors">Quản lý bác sĩ</a>
     <a href="#" class="nav-link" data-tab="patients">Quản lý bệnh nhân</a>
     <a href="#" class="nav-link" data-tab="devices">Giám sát hệ thống</a>
@@ -30,6 +67,7 @@ body {font-family: Arial, sans-serif;}
 <div class="content">
 
     <!-- Quản lý bác sĩ -->
+
     <div id="tab-doctors" class="tab-content">
         <h3>Quản lý bác sĩ</h3>
         <button class="btn btn-success mb-3" id="addDoctorBtn">Thêm bác sĩ</button>
@@ -44,15 +82,24 @@ body {font-family: Arial, sans-serif;}
     <!-- Quản lý bệnh nhân -->
     <div id="tab-patients" class="tab-content d-none">
         <h3>Quản lý bệnh nhân</h3>
+        <!-- MỚI: Nút thêm bệnh nhân -->
+        <button class="btn btn-success mb-3" id="addPatientBtn">Thêm bệnh nhân</button>
         <table class="table table-bordered table-striped">
             <thead>
-                <tr><th>#</th><th>Họ và tên</th><th>Email</th><th>Bác sĩ phụ trách</th><th>Hành động</th></tr>
+                <tr>
+                    <th>#</th>
+                    <th>Họ và tên</th>
+                    <th>Email</th> <!-- SỬA: ĐÃ THÊM LẠI CỘT EMAIL -->
+                    <th>Bác sĩ phụ trách</th>
+                    <!-- Đã xóa cột Hành động -->
+                </tr>
             </thead>
             <tbody id="patients-table-body"></tbody>
         </table>
     </div>
 
     <!-- Giám sát hệ thống -->
+
     <div id="tab-devices" class="tab-content d-none">
         <h3>Giám sát thiết bị IoT</h3>
         <table class="table table-bordered table-striped">
@@ -67,13 +114,138 @@ body {font-family: Arial, sans-serif;}
     <div id="tab-reports" class="tab-content d-none">
         <h3>Thống kê & báo cáo</h3>
         <div class="row">
-            <div class="col-md-4"><canvas id="patientsChart"></canvas></div>
-            <div class="col-md-4"><canvas id="doctorsChart"></canvas></div>
-            <div class="col-md-4"><canvas id="alertsChart"></canvas></div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5>Tổng Bệnh nhân</h5>
+                        <p id="total-patients" class="fs-3">0</p>
+                    </div>
+                </div>
+            </div>
+             <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5>Tổng Bác sĩ</h5>
+                        <p id="total-doctors" class="fs-3">0</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-6">
+                 <h5>Thống kê cảnh báo</h5>
+                <canvas id="alertsChart" height="200"></canvas>
+            </div>
         </div>
     </div>
 
 </div>
+
+<!-- Modals cho Quản lý Bác sĩ -->
+
+<div class="modal fade" id="doctorModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="doctorModalTitle">Thêm bác sĩ</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+          <form id="doctorForm">
+              <div id="doctorMsg" class="alert d-none" role="alert"></div>
+              <input type="hidden" id="modalDoctorId">
+              <div class="mb-3">
+                <label class="form-label">Họ và tên</label>
+                <input type="text" class="form-control" id="modalDocFullName" required>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Email</label>
+                <input type="email" class="form-control" id="modalDocEmail" required>
+              </div>
+              <!-- Trường mật khẩu chỉ hiển thị khi thêm mới -->
+              <div class="mb-3" id="password-field">
+                <label class="form-label">Mật khẩu</label>
+                <input type="password" class="form-control" id="modalDocPassword" required>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Số điện thoại</label>
+                <input type="text" class="form-control" id="modalDocPhone">
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Địa chỉ</label>
+                <input type="text" class="form-control" id="modalDocAddress">
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Ngày sinh</label>
+                <input type="date" class="form-control" id="modalDocDOB">
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Chức danh</label>
+                <input type="text" class="form-control" id="modalDocTitle">
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Chuyên khoa</label>
+                <input type="text" class="form-control" id="modalDocSpecialty">
+              </div>
+          </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+        <button type="button" class="btn btn-primary" id="saveDoctorBtn">Lưu</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+< Modal Thêm Bệnh Nhân -->
+<div class="modal fade" id="patientModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="patientModalTitle">Thêm bệnh nhân</h5>
+        <!-- SỬA LỖI: Thiếu class "btn-close" -->
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+          <form id="patientForm">
+              <div id="patientMsg" class="alert d-none" role="alert"></div>
+              <div class="mb-3">
+                <label class="form-label">Họ và tên</label>
+                <input type="text" class="form-control" id="modalPatientFullName" required>
+              </div>
+              <!-- SỬA: ĐÃ THÊM LẠI TRƯỜNG EMAIL -->
+              <div class="mb-3">
+                <label class="form-label">Email</label>
+                <input type="email" class="form-control" id="modalPatientEmail" required>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Mật khẩu</label>
+                <input type="password" class="form-control" id="modalPatientPassword" required>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Số điện thoại</label>
+                <input type="text" class="form-control" id="modalPatientPhone">
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Địa chỉ</label>
+                <input type="text" class="form-control" id="modalPatientAddress">
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Ngày sinh</label>
+                <input type="date" class="form-control" id="modalPatientDOB">
+              </div>
+          </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+        <button type="button" class="btn btn-primary" id="savePatientBtn">Lưu</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -81,8 +253,23 @@ body {font-family: Arial, sans-serif;}
 document.addEventListener("DOMContentLoaded", async () => {
     const user = JSON.parse(localStorage.getItem("user"));
     if(!user || user.role !== "manager"){ window.location.href="/login.html"; return; }
+    const managerId = user.manager_id;
+    
+    // MỚI: Tải thông tin user lên sidebar
+    document.getElementById("userProfileName").innerText = user.full_name;
+    document.getElementById("userProfileRole").innerText = user.role;
+    
+    let doctorModal = new bootstrap.Modal(document.getElementById('doctorModal'));
+    // MỚI: Khởi tạo modal bệnh nhân
+    let patientModal = new bootstrap.Modal(document.getElementById('patientModal'));
+    
+    // XÓA: Khởi tạo modal gán
+    // let assignModal = new bootstrap.Modal(document.getElementById('assignModal'));
+    
+    let doctorsCache = []; // Cache danh sách bác sĩ
 
     // Sidebar tab switching
+
     document.querySelectorAll("#sidebar .nav-link").forEach(link => {
         link.addEventListener("click", e => {
             e.preventDefault();
@@ -90,6 +277,13 @@ document.addEventListener("DOMContentLoaded", async () => {
             link.classList.add("active");
             document.querySelectorAll(".tab-content").forEach(t=>t.classList.add("d-none"));
             document.getElementById("tab-" + link.dataset.tab).classList.remove("d-none");
+            
+            // Tải lại dữ liệu khi chuyển tab
+            const tab = link.dataset.tab;
+            if (tab === 'doctors') loadDoctors();
+            if (tab === 'patients') loadPatients();
+            if (tab === 'devices') loadDevices();
+            if (tab === 'reports') loadReports();
         });
     });
 
@@ -97,79 +291,295 @@ document.addEventListener("DOMContentLoaded", async () => {
         localStorage.removeItem("user");
         window.location.href="/login.html";
     });
+    
+    // ======== QUẢN LÝ BÁC SĨ ========
 
     // Load bác sĩ
+
     async function loadDoctors(){
         try{
-            const res = await fetch(`/api/managers/${user.manager_id}/doctors`);
+            const res = await fetch(`/api/managers/${managerId}/doctors`);
             if(!res.ok) return;
-            const data = await res.json();
+            doctorsCache = await res.json();
             const tbody = document.getElementById("doctors-table-body");
             tbody.innerHTML="";
-            data.forEach((d,i)=>{
+            
+            if (doctorsCache.length === 0) {
+                tbody.innerHTML = "<tr><td colspan='6'>Chưa có bác sĩ nào.</td></tr>";
+                return;
+            }
+            
+            doctorsCache.forEach((d,i)=>{
                 const tr = document.createElement("tr");
-                tr.innerHTML = `<td>${i+1}</td><td>${d.full_name}</td><td>${d.email}</td><td>${d.phone_number}</td><td>${d.title}</td>
+                tr.innerHTML = `<td>${i+1}</td>
+                                <td>${d.full_name}</td>
+                                <td>${d.email}</td>
+                                <td>${d.phone_number || ''}</td>
+                                <td>${d.title || ''}</td>
                                 <td>
                                     <button class="btn btn-primary btn-sm edit-btn" data-id="${d.doctor_id}">Sửa</button>
                                     <button class="btn btn-danger btn-sm del-btn" data-id="${d.doctor_id}">Xóa</button>
                                 </td>`;
                 tbody.appendChild(tr);
             });
+            
+            // Gán sự kiện cho nút Sửa/Xóa
+            addDoctorButtonListeners();
+            
         } catch(err){ console.error(err); }
     }
-    await loadDoctors();
+    
+
+    function addDoctorButtonListeners() {
+        document.querySelectorAll('.edit-btn').forEach(btn => {
+            btn.addEventListener('click', () => openEditDoctorModal(btn.dataset.id));
+        });
+        document.querySelectorAll('.del-btn').forEach(btn => {
+            btn.addEventListener('click', () => deleteDoctor(btn.dataset.id));
+        });
+    }
+
+    // Mở modal Thêm bác sĩ
+
+    document.getElementById('addDoctorBtn').addEventListener('click', () => {
+        document.getElementById('doctorModalTitle').innerText = "Thêm bác sĩ";
+        document.getElementById('modalDoctorId').value = "";
+        document.getElementById('password-field').style.display = 'block'; // Hiện trường mật khẩu
+        document.getElementById('doctorForm').reset();
+        document.getElementById("doctorMsg").classList.add('d-none');
+        doctorModal.show();
+    });
+    
+    // Mở modal Sửa bác sĩ
+
+    function openEditDoctorModal(id) {
+        const doctor = doctorsCache.find(d => d.doctor_id == id);
+        if (!doctor) return;
+        
+        document.getElementById('doctorModalTitle').innerText = "Sửa thông tin bác sĩ";
+        document.getElementById('modalDoctorId').value = doctor.doctor_id;
+        document.getElementById('password-field').style.display = 'none'; // Ẩn trường mật khẩu
+        document.getElementById("doctorMsg").classList.add('d-none');
+        document.getElementById('doctorForm').reset();
+
+
+        document.getElementById('modalDocFullName').value = doctor.full_name;
+        document.getElementById('modalDocEmail').value = doctor.email;
+        document.getElementById('modalDocPhone').value = doctor.phone_number || '';
+        document.getElementById('modalDocAddress').value = doctor.address || '';
+        document.getElementById('modalDocDOB').value = doctor.date_of_birth || '';
+        document.getElementById('modalDocTitle').value = doctor.title || '';
+        document.getElementById('modalDocSpecialty').value = doctor.specialty || '';
+        
+        doctorModal.show();
+    }
+    
+    // Lưu (Thêm hoặc Sửa) bác sĩ
+
+    document.getElementById('saveDoctorBtn').addEventListener('click', async () => {
+        const doctorId = document.getElementById('modalDoctorId').value;
+        const isEditing = !!doctorId;
+        
+        const body = {
+            full_name: document.getElementById('modalDocFullName').value,
+            email: document.getElementById('modalDocEmail').value,
+            phone_number: document.getElementById('modalDocPhone').value,
+            address: document.getElementById('modalDocAddress').value,
+            date_of_birth: document.getElementById('modalDocDOB').value,
+            title: document.getElementById('modalDocTitle').value,
+            specialty: document.getElementById('modalDocSpecialty').value
+        };
+        
+        let url = `/api/managers/${managerId}/doctors`; // URL Thêm
+        let method = 'POST';
+        
+        if (isEditing) {
+            url = `/api/managers/doctors/${doctorId}`; // URL Sửa
+            method = 'PUT';
+        } else {
+            body.password = document.getElementById('modalDocPassword').value; // Thêm mật khẩu khi tạo mới
+        }
+        
+        const msgEl = document.getElementById("doctorMsg");
+        try {
+            const res = await fetch(url, {
+                method: method,
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(body)
+            });
+            const data = await res.json();
+            
+            if (res.ok) {
+                msgEl.textContent = data.message;
+                msgEl.className = 'alert alert-success';
+                await loadDoctors(); // Tải lại danh sách
+                setTimeout(() => doctorModal.hide(), 1000);
+            } else {
+                msgEl.textContent = data.message;
+                msgEl.className = 'alert alert-danger';
+            }
+        } catch (err) {
+            msgEl.textContent = "Lỗi máy chủ!";
+            msgEl.className = 'alert alert-danger';
+        }
+    });
+
+    // Xóa bác sĩ
+
+    async function deleteDoctor(id) {
+        if (!confirm("Bạn có chắc chắn muốn xóa bác sĩ này? Bệnh nhân của họ sẽ bị gỡ gán.")) return;
+        
+        try {
+            const res = await fetch(`/api/managers/doctors/${id}`, { method: 'DELETE' });
+            if (res.ok) {
+                await loadDoctors(); // Tải lại
+            } else {
+                alert("Xóa thất bại!");
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Lỗi khi xóa bác sĩ!");
+        }
+    }
+
+
+    // ======== QUẢN LÝ BỆNH NHÂN ========
 
     // Load bệnh nhân
     async function loadPatients(){
         try{
-            const res = await fetch(`/api/managers/${user.manager_id}/patients`);
+            const res = await fetch(`/api/managers/${managerId}/patients`);
             if(!res.ok) return;
             const data = await res.json();
             const tbody = document.getElementById("patients-table-body");
             tbody.innerHTML="";
+            
+            if (data.length === 0) {
+                 // SỬA: Cập nhật colspan
+                 tbody.innerHTML = "<tr><td colspan='4'>Chưa có bệnh nhân nào.</td></tr>";
+                 return;
+            }
+            
             data.forEach((p,i)=>{
                 const tr = document.createElement("tr");
-                tr.innerHTML = `<td>${i+1}</td><td>${p.full_name}</td><td>${p.email}</td><td>${p.doctor_name || ''}</td>
-                                <td><button class="btn btn-primary btn-sm assign-btn" data-id="${p.patient_id}">Gán bác sĩ</button></td>`;
+                // CẬP NHẬT: Thêm lại cột email
+                tr.innerHTML = `<td>${i+1}</td>
+                                <td>${p.full_name}</td>
+                                <td>${p.email || ''}</td>
+                                <td>${p.doctor_name || 'Đang chờ...'}</td>
+                                <!-- Đã xóa nút gán -->
+                                `;
                 tbody.appendChild(tr);
             });
+            
+       
+
+            
         } catch(err){ console.error(err); }
     }
-    await loadPatients();
+    
 
-    // Load thiết bị
+
+    // MỚI: Mở modal Thêm Bệnh nhân
+
+    document.getElementById('addPatientBtn').addEventListener('click', () => {
+        document.getElementById('patientForm').reset();
+        document.getElementById("patientMsg").classList.add('d-none');
+        patientModal.show();
+    });
+    
+    // Lưu Bệnh nhân
+    document.getElementById('savePatientBtn').addEventListener('click', async () => {
+
+        const body = {
+            full_name: document.getElementById('modalPatientFullName').value,
+            email: document.getElementById('modalPatientEmail').value,
+            password: document.getElementById('modalPatientPassword').value,
+            phone_number: document.getElementById('modalPatientPhone').value,
+            address: document.getElementById('modalPatientAddress').value,
+            date_of_birth: document.getElementById('modalPatientDOB').value
+        };
+
+        const msgEl = document.getElementById("patientMsg");
+        try {
+            const res = await fetch(`/api/managers/${managerId}/patients`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(body)
+            });
+            const data = await res.json();
+            
+            if (res.ok) {
+                msgEl.textContent = data.message;
+                msgEl.className = 'alert alert-success';
+                await loadPatients(); // Tải lại danh sách bệnh nhân
+                setTimeout(() => patientModal.hide(), 1000);
+            } else {
+                msgEl.textContent = data.message;
+                msgEl.className = 'alert alert-danger';
+            }
+        } catch (err) {
+            msgEl.textContent = "Lỗi máy chủ!";
+            msgEl.className = 'alert alert-danger';
+        }
+    });
+
+
+    // ======== GIÁM SÁT THIẾT BỊ ========
+
     async function loadDevices(){
         try{
-            const res = await fetch(`/api/managers/${user.manager_id}/devices`);
+            const res = await fetch(`/api/managers/${managerId}/devices`);
             if(!res.ok) return;
             const data = await res.json();
             const tbody = document.getElementById("devices-table-body");
             tbody.innerHTML="";
+             if (data.length === 0) {
+                 tbody.innerHTML = "<tr><td colspan='4'>Không có thiết bị nào.</td></tr>";
+                 return;
+            }
             data.forEach((d,i)=>{
                 const tr = document.createElement("tr");
-                tr.innerHTML = `<td>${i+1}</td><td>${d.device_serial}</td><td>${d.status}</td><td>${d.last_seen}</td>`;
+                tr.innerHTML = `<td>${i+1}</td>
+                                <td>${d.device_serial}</td>
+                                <td>${d.status}</td>
+                                <td>${new Date(d.last_seen).toLocaleString()}</td>`;
                 tbody.appendChild(tr);
             });
         } catch(err){ console.error(err); }
     }
-    await loadDevices();
 
-    // Load thống kê (ví dụ)
+    // ======== THỐNG KÊ ========
+
+    let alertsChart;
     async function loadReports(){
         try{
-            const res = await fetch(`/api/managers/${user.manager_id}/stats`);
+            const res = await fetch(`/api/managers/${managerId}/stats`);
             if(!res.ok) return;
             const stats = await res.json();
-            const ctx1 = document.getElementById("patientsChart").getContext("2d");
-            const ctx2 = document.getElementById("doctorsChart").getContext("2d");
-            const ctx3 = document.getElementById("alertsChart").getContext("2d");
+            
+            document.getElementById('total-patients').innerText = stats.patients_total || 0;
+            document.getElementById('total-doctors').innerText = stats.doctors_total || 0;
 
-            new Chart(ctx1,{type:'bar',data:{labels:stats.patient_labels,datasets:[{label:'Bệnh nhân',data:stats.patient_counts,backgroundColor:'blue'}]}});
-            new Chart(ctx2,{type:'bar',data:{labels:stats.doctor_labels,datasets:[{label:'Bác sĩ',data:stats.doctor_counts,backgroundColor:'green'}]}});
-            new Chart(ctx3,{type:'bar',data:{labels:stats.alert_labels,datasets:[{label:'Cảnh báo',data:stats.alert_counts,backgroundColor:'red'}]}});
+            const ctx = document.getElementById("alertsChart").getContext("2d");
+            if(alertsChart) alertsChart.destroy();
+            
+            alertsChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: stats.alert_labels,
+                    datasets: [{
+                        label: 'Số lượng Cảnh báo',
+                        data: stats.alert_counts,
+                        backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0']
+                    }]
+                }
+            });
         } catch(err){ console.error(err); }
     }
-    await loadReports();
+    
+    // Tải dữ liệu ban đầu cho tab active
+    loadDoctors();
 });
 </script>
 

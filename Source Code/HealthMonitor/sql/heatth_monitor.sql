@@ -63,6 +63,7 @@ CREATE TABLE Patients (
     full_name VARCHAR(255) NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     phone_number VARCHAR(20),
+    email VARCHAR(255) NOT NULL UNIQUE,
     address TEXT,
     date_of_birth DATE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
