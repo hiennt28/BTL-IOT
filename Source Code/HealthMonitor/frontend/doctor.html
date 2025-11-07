@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Bác sĩ</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+body {font-family: Arial, sans-serif;}
+.sidebar {width: 220px; position: fixed; top:0; left:0; height:100%; background:#343a40; padding-top:20px;}
+.sidebar .nav-link {color:#fff; display:block; padding:10px;}
+.sidebar .nav-link.active {background:#495057;}
+.content {margin-left:230px; padding:20px;}
+.card {margin-bottom:15px;}
+.tab-content {margin-top:15px;}
+</style>
+</head>
+<body>
+
+<div class="sidebar" id="sidebar">
+    <a href="#" class="nav-link active" data-tab="patients">Bệnh nhân phụ trách</a>
+    <a href="#" class="nav-link" data-tab="health">Theo dõi sức khỏe</a>
+    <a href="#" class="nav-link" data-tab="alerts">Cảnh báo</a>
+    <a href="#" class="nav-link" data-tab="reports">Báo cáo & thống kê</a>
+    <hr>
+    <button id="logoutBtn" class="btn btn-danger w-100">Đăng xuất</button>
+</div>
+
+<div class="content">
+
+    <!-- Danh sách bệnh nhân -->
+    <div id="tab-patients" class="tab-content">
+        <h3>Bệnh nhân phụ trách</h3>
+        <table class="table table-bordered table-striped">
+            <thead>
+                <tr>
+                    <th>#</th><th>Họ và tên</th><th>Email</th><th>Điện thoại</th><th>Hành động</th>
+                </tr>
+            </thead>
+            <tbody id="patients-table-body"></tbody>
+        </table>
+    </div>
+
+    <!-- Theo dõi sức khỏe -->
+    <div id="tab-health" class="tab-content d-none">
+        <h3>Dữ liệu sức khỏe bệnh nhân</h3>
+        <label>Chọn bệnh nhân:</label>
+        <select id="select-patient" class="form-select w-25 mb-3"></select>
+
+        <div class="row">
+            <div class="col-md-2"><div class="card"><div class="card-body">BPM: <span id="bpm_val">0</span></div></div></div>
+            <div class="col-md-2"><div class="card"><div class="card-body">IR: <span id="ir_val">0</span></div></div></div>
+            <div class="col-md-2"><div class="card"><div class="card-body">Accel X: <span id="accel_x_val">0</span></div></div></div>
+            <div class="col-md-2"><div class="card"><div class="card-body">Accel Y: <span id="accel_y_val">0</span></div></div></div>
+            <div class="col-md-2"><div class="card"><div class="card-body">Accel Z: <span id="accel_z_val">0</span></div></div></div>
+            <div class="col-md-2"><div class="card"><div class="card-body">A total: <span id="a_total_val">0</span></div></div></div>
+        </div>
+
+        <hr>
+        <label>Chọn khoảng thời gian:</label>
+        <select id="chart-range" class="form-select w-25 mb-3">
+            <option value="day">Ngày</option>
+            <option value="week">Tuần</option>
+            <option value="month">Tháng</option>
+        </select>
+        <canvas id="bpmChart" height="150"></canvas>
+    </div>
+
+    <!-- Cảnh báo -->
+    <div id="tab-alerts" class="tab-content d-none">
+        <h3>Cảnh báo bệnh nhân</h3>
+        <div id="alerts-table" class="list-group"></div>
+    </div>
+
+    <!-- Báo cáo & thống kê -->
+    <div id="tab-reports" class="tab-content d-none">
+        <h3>Báo cáo sức khỏe</h3>
+        <div id="report-content">
+            <p>Tổng quan bệnh nhân, nhịp tim trung bình, báo cáo định kỳ sẽ hiển thị tại đây.</p>
+        </div>
+    </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", async () => {
+    const user = JSON.parse(localStorage.getItem("user"));
+    if(!user){ window.location.href="/login.html"; return; }
+    const doctorId = user.doctor_id;
+
+    // Sidebar tab switching
+    document.querySelectorAll("#sidebar .nav-link").forEach(link => {
+        link.addEventListener("click", e => {
+            e.preventDefault();
+            document.querySelectorAll("#sidebar .nav-link").forEach(l=>l.classList.remove("active"));
+            link.classList.add("active");
+            document.querySelectorAll(".tab-content").forEach(t=>t.classList.add("d-none"));
+            document.getElementById("tab-" + link.dataset.tab).classList.remove("d-none");
+        });
+    });
+
+    document.getElementById("logoutBtn").addEventListener("click", ()=> {
+        localStorage.removeItem("user");
+        window.location.href="/login.html";
+    });
+
+    // Load danh sách bệnh nhân
+    async function loadPatients(){
+        try{
+            const res = await fetch(`/api/doctors/${doctorId}/patients`);
+            if(!res.ok) return;
+            const data = await res.json();
+            const tbody = document.getElementById("patients-table-body");
+            const select = document.getElementById("select-patient");
+            tbody.innerHTML = ""; select.innerHTML="";
+            data.forEach((p,i)=>{
+                const tr = document.createElement("tr");
+                tr.innerHTML = `<td>${i+1}</td><td>${p.full_name}</td><td>${p.email}</td><td>${p.phone_number}</td>
+                                <td><button class="btn btn-primary btn-sm view-btn" data-id="${p.patient_id}">Xem</button></td>`;
+                tbody.appendChild(tr);
+                const opt = document.createElement("option");
+                opt.value = p.patient_id; opt.text = p.full_name;
+                select.appendChild(opt);
+            });
+        } catch(err){ console.error(err); }
+    }
+    await loadPatients();
+
+    // Theo dõi sức khỏe theo patient
+    let bpmChart;
+    async function loadHealth(patientId, range="day"){
+        try {
+            const res = await fetch(`/api/health/latest/${patientId}`);
+            if(res.ok){
+                const data = await res.json();
+                document.getElementById("bpm_val").innerText = data.bpm;
+                document.getElementById("ir_val").innerText = data.ir_value;
+                document.getElementById("accel_x_val").innerText = data.accel_x;
+                document.getElementById("accel_y_val").innerText = data.accel_y;
+                document.getElementById("accel_z_val").innerText = data.accel_z;
+                document.getElementById("a_total_val").innerText = data.a_total;
+            }
+
+            const histRes = await fetch(`/api/health/history/${patientId}?range=${range}`);
+            if(histRes.ok){
+                const histData = await histRes.json();
+                const ctx = document.getElementById("bpmChart").getContext("2d");
+                const labels = histData.map(d=>new Date(d.timestamp).toLocaleString());
+                const bpmValues = histData.map(d=>d.bpm);
+                if(bpmChart) bpmChart.destroy();
+                bpmChart = new Chart(ctx,{
+                    type:"line",
+                    data:{labels,datasets:[{label:"BPM",data:bpmValues,borderColor:"red",fill:false}]},
+                    options:{responsive:true,maintainAspectRatio:false}
+                });
+            }
+        } catch(err){ console.error(err); }
+    }
+
+    const selectPatient = document.getElementById("select-patient");
+    if(selectPatient.value) loadHealth(selectPatient.value);
+    selectPatient.addEventListener("change", e=> loadHealth(e.target.value));
+
+    document.getElementById("chart-range").addEventListener("change", e=> loadHealth(selectPatient.value, e.target.value));
+
+    // Xem cảnh báo bệnh nhân
+    async function loadAlerts(){
+        try {
+            const res = await fetch(`/api/doctors/${doctorId}/alerts`);
+            if(!res.ok) return;
+            const data = await res.json();
+            const container = document.getElementById("alerts-table");
+            container.innerHTML = "";
+            data.forEach(a=>{
+                const div = document.createElement("div");
+                div.className = "list-group-item " + (a.status=="new"?"list-group-item-danger":"list-group-item-secondary");
+                div.innerHTML = `<strong>${a.alert_type}</strong>: ${a.message} <small class="text-muted">${a.timestamp}</small>`;
+                container.appendChild(div);
+            });
+        } catch(err){ console.error(err); }
+    }
+    loadAlerts();
+});
+</script>
+
+</body>
+</html>

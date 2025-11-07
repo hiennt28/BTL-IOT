@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Đăng nhập hệ thống IoT Health Monitor</title>
+<link rel="stylesheet" href="assets/css/style.css">
+<style>
+.login-box {
+  max-width: 400px;
+  margin: 80px auto;
+  padding: 30px;
+  border: 1px solid #ccc;
+  border-radius: 12px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+input {
+  width: 100%;
+  padding: 10px;
+  margin: 5px 0;
+}
+button {
+  padding: 10px 20px;
+  margin-top: 10px;
+  width: 100%;
+  background: #007BFF;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+button:hover { background: #0056b3; }
+#msg {
+  color: red;
+  margin-top: 10px;
+  text-align: center;
+}
+p {
+  text-align: center;
+  margin-top: 15px;
+}
+p a {
+  color: #007BFF;
+  text-decoration: none;
+}
+p a:hover {
+  text-decoration: underline;
+}
+</style>
+
+<script>
+async function login() {
+  const email = document.getElementById('email').value;
+  const password = document.getElementById('password').value;
+
+  const res = await fetch('/api/auth/login', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({email, password})
+  });
+
+  const data = await res.json();
+  const msg = document.getElementById('msg');
+
+  if (data.success) {
+    msg.style.color = 'green';
+    msg.textContent = 'Đăng nhập thành công! Đang chuyển hướng...';
+    localStorage.setItem('user', JSON.stringify(data.user));
+    const role = data.user.role;
+    if (role.includes('manager')) {
+      window.location.href = 'manager.html';
+    } else if (role.includes('doctor')) {
+      window.location.href = 'doctor.html';
+    } else {
+      window.location.href = 'patient.html';
+    }
+  } else {
+    msg.textContent = data.message || 'Sai email hoặc mật khẩu!';
+  }
+}
+</script>
+<!-- login.html -->
+
+<script>
+const loginForm = document.getElementById('loginForm');
+
+loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+
+    try {
+        const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({email, password})
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+            // Lưu thông tin user vào localStorage
+            localStorage.setItem('user', JSON.stringify(data.user));
+
+            // Chuyển sang patient.html nếu role là patient
+            if (data.user.role === 'patient') {
+                window.location.href = '/patient.html';
+            } else if (data.user.role === 'doctor') {
+                window.location.href = '/doctor.html';
+            } else if (data.user.role === 'manager') {
+                window.location.href = '/manager.html';
+            }
+        } else {
+            alert(data.message);
+        }
+    } catch (err) {
+        console.error('Login error:', err);
+        alert('Lỗi máy chủ!');
+    }
+});
+</script>
+
+</head>
+
+<body>
+  <div class="login-box">
+    <h2>Đăng nhập hệ thống</h2>
+    <input type="email" id="email" placeholder="Email" required><br>
+    <input type="password" id="password" placeholder="Mật khẩu" required><br>
+    <button onclick="login()">Đăng nhập</button>
+    <div id="msg"></div>
+    <p>Chưa có tài khoản? <a href="register.html">Đăng ký ngay</a></p>
+  </div>
+</body>
+</html>

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Đăng ký tài khoản - IoT Health Monitor</title>
+<link rel="stylesheet" href="assets/css/style.css">
+<style>
+.register-box {
+  max-width: 420px; margin: 60px auto; padding: 30px;
+  border: 1px solid #ccc; border-radius: 12px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+input, select {
+  width:100%; padding:10px; margin:5px 0;
+}
+button {
+  padding:10px 20px; margin-top:10px; width:100%;
+  background:#28a745; color:#fff; border:none; border-radius:8px; cursor:pointer;
+}
+button:hover { background:#218838; }
+#msg { color:red; margin-top:10px; text-align:center; }
+</style>
+<script>
+async function registerUser() {
+  const full_name = document.getElementById('name').value;
+  const email = document.getElementById('email').value;
+  const password = document.getElementById('password').value;
+  const phone_number = document.getElementById('phone').value;
+  const address = document.getElementById('address').value;
+  const date_of_birth = document.getElementById('dob').value;
+  const role = document.getElementById('role').value;
+
+  const res = await fetch('/api/auth/register', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ full_name, email, password, phone_number, address, date_of_birth, role })
+  });
+  const data = await res.json();
+  const msg = document.getElementById('msg');
+
+  if (data.success) {
+    msg.style.color = 'green';
+    msg.textContent = 'Đăng ký thành công! Đang chuyển hướng...';
+    setTimeout(()=>window.location.href='login.html', 1500);
+  } else {
+    msg.textContent = data.message || 'Đăng ký thất bại!';
+  }
+}
+</script>
+</head>
+<body>
+  <div class="register-box">
+    <h2>Đăng ký tài khoản</h2>
+    <select id="role">
+      <option value="patient">Bệnh nhân</option>
+      <option value="doctor">Bác sĩ</option>
+      <option value="manager">Quản lý</option>
+    </select>
+    <input type="text" id="name" placeholder="Họ và tên" required>
+    <input type="email" id="email" placeholder="Email" required>
+    <input type="password" id="password" placeholder="Mật khẩu" required>
+    <input type="text" id="phone" placeholder="Số điện thoại">
+    <input type="text" id="address" placeholder="Địa chỉ">
+    <input type="date" id="dob" placeholder="Ngày sinh">
+    <button onclick="registerUser()">Đăng ký</button>
+    <div id="msg"></div>
+    <p style="text-align:center;margin-top:15px;">Đã có tài khoản? <a href="login.html">Đăng nhập</a></p>
+  </div>
+</body>
+</html>

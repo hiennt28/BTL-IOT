@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Quản lý</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+body {font-family: Arial, sans-serif;}
+.sidebar {width: 220px; position: fixed; top:0; left:0; height:100%; background:#343a40; padding-top:20px;}
+.sidebar .nav-link {color:#fff; display:block; padding:10px;}
+.sidebar .nav-link.active {background:#495057;}
+.content {margin-left:230px; padding:20px;}
+.card {margin-bottom:15px;}
+.tab-content {margin-top:15px;}
+</style>
+</head>
+<body>
+
+<div class="sidebar" id="sidebar">
+    <a href="#" class="nav-link active" data-tab="doctors">Quản lý bác sĩ</a>
+    <a href="#" class="nav-link" data-tab="patients">Quản lý bệnh nhân</a>
+    <a href="#" class="nav-link" data-tab="devices">Giám sát hệ thống</a>
+    <a href="#" class="nav-link" data-tab="reports">Thống kê & báo cáo</a>
+    <hr>
+    <button id="logoutBtn" class="btn btn-danger w-100">Đăng xuất</button>
+</div>
+
+<div class="content">
+
+    <!-- Quản lý bác sĩ -->
+    <div id="tab-doctors" class="tab-content">
+        <h3>Quản lý bác sĩ</h3>
+        <button class="btn btn-success mb-3" id="addDoctorBtn">Thêm bác sĩ</button>
+        <table class="table table-bordered table-striped">
+            <thead>
+                <tr><th>#</th><th>Họ và tên</th><th>Email</th><th>Điện thoại</th><th>Chức danh</th><th>Hành động</th></tr>
+            </thead>
+            <tbody id="doctors-table-body"></tbody>
+        </table>
+    </div>
+
+    <!-- Quản lý bệnh nhân -->
+    <div id="tab-patients" class="tab-content d-none">
+        <h3>Quản lý bệnh nhân</h3>
+        <table class="table table-bordered table-striped">
+            <thead>
+                <tr><th>#</th><th>Họ và tên</th><th>Email</th><th>Bác sĩ phụ trách</th><th>Hành động</th></tr>
+            </thead>
+            <tbody id="patients-table-body"></tbody>
+        </table>
+    </div>
+
+    <!-- Giám sát hệ thống -->
+    <div id="tab-devices" class="tab-content d-none">
+        <h3>Giám sát thiết bị IoT</h3>
+        <table class="table table-bordered table-striped">
+            <thead>
+                <tr><th>#</th><th>Serial</th><th>Trạng thái</th><th>Last Seen</th></tr>
+            </thead>
+            <tbody id="devices-table-body"></tbody>
+        </table>
+    </div>
+
+    <!-- Thống kê & báo cáo -->
+    <div id="tab-reports" class="tab-content d-none">
+        <h3>Thống kê & báo cáo</h3>
+        <div class="row">
+            <div class="col-md-4"><canvas id="patientsChart"></canvas></div>
+            <div class="col-md-4"><canvas id="doctorsChart"></canvas></div>
+            <div class="col-md-4"><canvas id="alertsChart"></canvas></div>
+        </div>
+    </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", async () => {
+    const user = JSON.parse(localStorage.getItem("user"));
+    if(!user || user.role !== "manager"){ window.location.href="/login.html"; return; }
+
+    // Sidebar tab switching
+    document.querySelectorAll("#sidebar .nav-link").forEach(link => {
+        link.addEventListener("click", e => {
+            e.preventDefault();
+            document.querySelectorAll("#sidebar .nav-link").forEach(l=>l.classList.remove("active"));
+            link.classList.add("active");
+            document.querySelectorAll(".tab-content").forEach(t=>t.classList.add("d-none"));
+            document.getElementById("tab-" + link.dataset.tab).classList.remove("d-none");
+        });
+    });
+
+    document.getElementById("logoutBtn").addEventListener("click", ()=> {
+        localStorage.removeItem("user");
+        window.location.href="/login.html";
+    });
+
+    // Load bác sĩ
+    async function loadDoctors(){
+        try{
+            const res = await fetch(`/api/managers/${user.manager_id}/doctors`);
+            if(!res.ok) return;
+            const data = await res.json();
+            const tbody = document.getElementById("doctors-table-body");
+            tbody.innerHTML="";
+            data.forEach((d,i)=>{
+                const tr = document.createElement("tr");
+                tr.innerHTML = `<td>${i+1}</td><td>${d.full_name}</td><td>${d.email}</td><td>${d.phone_number}</td><td>${d.title}</td>
+                                <td>
+                                    <button class="btn btn-primary btn-sm edit-btn" data-id="${d.doctor_id}">Sửa</button>
+                                    <button class="btn btn-danger btn-sm del-btn" data-id="${d.doctor_id}">Xóa</button>
+                                </td>`;
+                tbody.appendChild(tr);
+            });
+        } catch(err){ console.error(err); }
+    }
+    await loadDoctors();
+
+    // Load bệnh nhân
+    async function loadPatients(){
+        try{
+            const res = await fetch(`/api/managers/${user.manager_id}/patients`);
+            if(!res.ok) return;
+            const data = await res.json();
+            const tbody = document.getElementById("patients-table-body");
+            tbody.innerHTML="";
+            data.forEach((p,i)=>{
+                const tr = document.createElement("tr");
+                tr.innerHTML = `<td>${i+1}</td><td>${p.full_name}</td><td>${p.email}</td><td>${p.doctor_name || ''}</td>
+                                <td><button class="btn btn-primary btn-sm assign-btn" data-id="${p.patient_id}">Gán bác sĩ</button></td>`;
+                tbody.appendChild(tr);
+            });
+        } catch(err){ console.error(err); }
+    }
+    await loadPatients();
+
+    // Load thiết bị
+    async function loadDevices(){
+        try{
+            const res = await fetch(`/api/managers/${user.manager_id}/devices`);
+            if(!res.ok) return;
+            const data = await res.json();
+            const tbody = document.getElementById("devices-table-body");
+            tbody.innerHTML="";
+            data.forEach((d,i)=>{
+                const tr = document.createElement("tr");
+                tr.innerHTML = `<td>${i+1}</td><td>${d.device_serial}</td><td>${d.status}</td><td>${d.last_seen}</td>`;
+                tbody.appendChild(tr);
+            });
+        } catch(err){ console.error(err); }
+    }
+    await loadDevices();
+
+    // Load thống kê (ví dụ)
+    async function loadReports(){
+        try{
+            const res = await fetch(`/api/managers/${user.manager_id}/stats`);
+            if(!res.ok) return;
+            const stats = await res.json();
+            const ctx1 = document.getElementById("patientsChart").getContext("2d");
+            const ctx2 = document.getElementById("doctorsChart").getContext("2d");
+            const ctx3 = document.getElementById("alertsChart").getContext("2d");
+
+            new Chart(ctx1,{type:'bar',data:{labels:stats.patient_labels,datasets:[{label:'Bệnh nhân',data:stats.patient_counts,backgroundColor:'blue'}]}});
+            new Chart(ctx2,{type:'bar',data:{labels:stats.doctor_labels,datasets:[{label:'Bác sĩ',data:stats.doctor_counts,backgroundColor:'green'}]}});
+            new Chart(ctx3,{type:'bar',data:{labels:stats.alert_labels,datasets:[{label:'Cảnh báo',data:stats.alert_counts,backgroundColor:'red'}]}});
+        } catch(err){ console.error(err); }
+    }
+    await loadReports();
+});
+</script>
+
+</body>
+</html>
