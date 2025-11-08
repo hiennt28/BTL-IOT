@@ -11,7 +11,7 @@ def get_patient(patient_id):
     cursor = conn.cursor(dictionary=True)
 
     # === BẮT ĐẦU CẬP NHẬT ===
-    # SỬA: JOIN với bảng Doctors để lấy doctor_name
+    # SỬA: Thêm cột current_health_status vào SELECT
     cursor.execute("""
         SELECT p.*, d.full_name as doctor_name 
         FROM `Patients` p

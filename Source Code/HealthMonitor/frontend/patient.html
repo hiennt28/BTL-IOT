@@ -7,7 +7,6 @@
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
-/* ... CSS không đổi ... */
 body {font-family: Arial, sans-serif;}
 .sidebar {width: 200px; position: fixed; top:0; left:0; height:100%; background:#343a40; padding-top:20px;}
 .sidebar .nav-link {color:#fff; display:block; padding:10px;}
@@ -16,11 +15,10 @@ body {font-family: Arial, sans-serif;}
 .card {margin-bottom:15px;}
 .tab-content {margin-top:15px;}
 
-/* CSS cho User Profile Box (Đã xóa avatar) */
 .user-profile {
   text-align: center;
   padding: 15px;
-  border-bottom: 1px solid #495057; /* Đường viền mờ */
+  border-bottom: 1px solid #495057;
   margin-bottom: 10px;
 }
 .user-profile h5 {
@@ -30,22 +28,30 @@ body {font-family: Arial, sans-serif;}
   margin-bottom: 3px;
 }
 .user-profile p {
-  color: #adb5bd; /* Màu xám nhạt */
+  color: #adb5bd;
   font-size: 0.9rem;
   margin-bottom: 0;
-  text-transform: capitalize; /* Viết hoa chữ cái đầu */
+  text-transform: capitalize;
 }
+
+/* === CẬP NHẬT MỚI: CSS cho trạng thái === */
+.status-normal { color: #198754; } /* Green */
+.status-light { color: #0dcaf0; } /* Cyan */
+.status-medium { color: #fd7e14; } /* Orange */
+.status-strong { color: #dc3545; } /* Red */
+.status-warning { color: #dc3545; font-weight: bold; } /* Red Bold */
+.status-unknown { color: #6c757d; } /* Gray */
+/* === KẾT THÚC CẬP NHẬT === */
+
 </style>
 </head>
 <body>
 
 <div class="sidebar" id="sidebar">
-    <!-- MỚI: User Profile Box (Đã xóa avatar) -->
     <div class="user-profile">
         <h5 id="userProfileName">Đang tải...</h5>
         <p id="userProfileRole">Bệnh nhân</p>
     </div>
-    <!-- Kết thúc User Profile Box -->
 
     <a href="#" class="nav-link active" data-tab="info">Thông tin cá nhân</a>
     <a href="#" class="nav-link" data-tab="health">Theo dõi sức khỏe</a>
@@ -59,16 +65,26 @@ body {font-family: Arial, sans-serif;}
     <!-- Thông tin cá nhân -->
     <div id="tab-info" class="tab-content">
         <h3>Thông tin cá nhân</h3>
-        <p>Họ và tên: <span id="full_name"></span></p>
-        <p>Email: <span id="email"></span></p>
-        <p>Số điện thoại: <span id="phone_number"></span></p>
-        <p>Địa chỉ: <span id="address"></span></p>
-        <p>Ngày sinh: <span id="date_of_birth"></span></p>
-        
-        <p><strong>Bác sĩ phụ trách:</strong> <span id="doctor_name" class="text-primary fw-bold"></span></p>
-
-        <button id="update-info-btn" class="btn btn-primary">Cập nhật thông tin</button>
-        <button id="change-pass-btn" class="btn btn-warning">Đổi mật khẩu</button>
+        <div class="card">
+            <div class="card-body">
+                <p><strong>Họ và tên:</strong> <span id="full_name"></span></p>
+                <p><strong>Email:</strong> <span id="email"></span></p>
+                <p><strong>Số điện thoại:</strong> <span id="phone_number"></span></p>
+                <p><strong>Địa chỉ:</strong> <span id="address"></span></p>
+                <p><strong>Ngày sinh:</strong> <span id="date_of_birth"></span></p>
+                <hr>
+                <p><strong>Bác sĩ phụ trách:</strong> <span id="doctor_name" class="text-primary fw-bold"></span></p>
+                
+                <!-- === CẬP NHẬT MỚI: Hiển thị trạng thái AI === -->
+                <p class="fs-5"><strong>Trạng thái sức khỏe (AI):</strong> 
+                   <span id="health_status" class="fw-bold status-unknown">Đang tải...</span>
+                </p>
+                <!-- === KẾT THÚC CẬP NHẬT === -->
+                
+                <button id="update-info-btn" class="btn btn-primary mt-2">Cập nhật thông tin</button>
+                <button id="change-pass-btn" class="btn btn-warning mt-2">Đổi mật khẩu</button>
+            </div>
+        </div>
     </div>
 
     <!-- Theo dõi sức khỏe -->
@@ -89,7 +105,10 @@ body {font-family: Arial, sans-serif;}
             <option value="week">Tuần</option>
             <option value="month">Tháng</option>
         </select>
-        <canvas id="bpmChart" height="150"></canvas>
+        
+        <div class="chart-container" style="position: relative; height:250px; width:100%">
+            <canvas id="bpmChart"></canvas>
+        </div>
     </div>
 
     <!-- Cảnh báo -->
@@ -103,7 +122,8 @@ body {font-family: Arial, sans-serif;}
         <h3>Lịch sử đo sức khỏe</h3>
         <table class="table table-bordered table-striped">
             <thead>
-                <tr><th>BPM</th><th>IR</th><th>Accel X</th><th>Accel Y</th><th>Accel Z</th><th>A total</th><th>Thời gian</th></tr>
+                <!-- === CẬP NHẬT MỚI: Thêm cột Trạng thái (AI) === -->
+                <tr><th>BPM</th><th>A total</th><th>Trạng thái (AI)</th><th>Thời gian</th><th>Accel X</th><th>Accel Y</th><th>Accel Z</th></tr>
             </thead>
             <tbody id="history-table-body"></tbody>
         </table>
@@ -146,7 +166,7 @@ body {font-family: Arial, sans-serif;}
   </div>
 </div>
 
-<!-- MỚI: Modal Đổi mật khẩu -->
+<!-- Modal Đổi mật khẩu -->
 <div class="modal fade" id="changePasswordModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -178,46 +198,55 @@ body {font-family: Arial, sans-serif;}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
-// === BẮT ĐẦU CẬP NHẬT: Thêm hàm định dạng ngày ===
-/**
- * Chuyển đổi chuỗi ngày (GMT hoặc ISO) thành dd/mm/yyyy
- * @param {string} dateString
- * @returns {string}
- */
+// === Hàm định dạng ngày (không đổi) ===
 function formatDate(dateString) {
     if (!dateString) return '';
     try {
         const date = new Date(dateString);
-        // Lấy ngày, tháng, năm (UTC để tránh lệch múi giờ khi chuyển đổi)
         const day = String(date.getUTCDate()).padStart(2, '0');
-        const month = String(date.getUTCMonth() + 1).padStart(2, '0'); // Tháng bắt đầu từ 0
+        const month = String(date.getUTCMonth() + 1).padStart(2, '0');
         const year = date.getUTCFullYear();
         return `${day}/${month}/${year}`;
     } catch (e) {
-        console.error("Lỗi định dạng ngày:", dateString, e);
-        return dateString; // Trả về chuỗi gốc nếu lỗi
+        return dateString;
     }
 }
-
-/**
- * Chuyển đổi chuỗi ngày (GMT hoặc ISO) thành yyyy-mm-dd
- * @param {string} dateString
- * @returns {string}
- */
 function formatDateForInput(dateString) {
     if (!dateString) return '';
      try {
         const date = new Date(dateString);
-        // Lấy ngày, tháng, năm (UTC để tránh lệch múi giờ)
         const day = String(date.getUTCDate()).padStart(2, '0');
         const month = String(date.getUTCMonth() + 1).padStart(2, '0');
         const year = date.getUTCFullYear();
         return `${year}-${month}-${day}`;
      } catch (e) {
-        return ''; // Trả về rỗng nếu lỗi
+        return '';
      }
 }
-// === KẾT THÚC CẬP NHẬT ===
+// === KẾT THÚC HÀM ĐỊNH DẠNG ===
+
+// === CẬP NHẬT MỚI: Hàm lấy class CSS cho trạng thái ===
+function getStatusClass(status) {
+    if (!status) return 'status-unknown';
+    status = status.toLowerCase();
+    if (status.includes('cảnh báo') || status.includes('nguy hiểm') || status.includes('bất thường')) {
+        return 'status-warning';
+    }
+    if (status.includes('hoạt động mạnh') || status.includes('cực độ')) {
+        return 'status-strong';
+    }
+    if (status.includes('hoạt động trung bình')) {
+        return 'status-medium';
+    }
+    if (status.includes('hoạt động nhẹ')) {
+        return 'status-light';
+    }
+    if (status.includes('bình thường')) {
+        return 'status-normal';
+    }
+    return 'status-unknown'; // Mặc định
+}
+// === KẾT THÚC HÀM CSS ===
 
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -226,21 +255,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     
     const patientId = user.patient_id;
     
-    // Cập nhật tên và vai trò trên sidebar
     document.getElementById("userProfileName").innerText = user.full_name;
     document.getElementById("userProfileRole").innerText = user.role;
 
-    let updateInfoModal;
-    let changePasswordModal;
-    let currentPatientData = {}; // MỚI: Biến lưu trữ dữ liệu gốc
-
-    // Khởi tạo Modals
-    if (document.getElementById('updateInfoModal')) {
-        updateInfoModal = new bootstrap.Modal(document.getElementById('updateInfoModal'));
-    }
-    if (document.getElementById('changePasswordModal')) {
-        changePasswordModal = new bootstrap.Modal(document.getElementById('changePasswordModal'));
-    }
+    let updateInfoModal = new bootstrap.Modal(document.getElementById('updateInfoModal'));
+    let changePasswordModal = new bootstrap.Modal(document.getElementById('changePasswordModal'));
+    let currentPatientData = {};
 
     // Sidebar tab switching
     document.querySelectorAll("#sidebar .nav-link").forEach(link => {
@@ -250,6 +270,11 @@ document.addEventListener("DOMContentLoaded", async () => {
             link.classList.add("active");
             document.querySelectorAll(".tab-content").forEach(t=>t.classList.add("d-none"));
             document.getElementById("tab-" + link.dataset.tab).classList.remove("d-none");
+            
+            // === CẬP NHẬT MỚI: Tải lại lịch sử khi nhấn tab ===
+            if (link.dataset.tab === 'history') {
+                loadHistory();
+            }
         });
     });
 
@@ -266,82 +291,77 @@ document.addEventListener("DOMContentLoaded", async () => {
             if(!res.ok) throw new Error("Không tìm thấy bệnh nhân!");
             const data = await res.json();
             
-            currentPatientData = data; // MỚI: Lưu dữ liệu gốc
+            currentPatientData = data; 
 
             document.getElementById("full_name").innerText = data.full_name;
             document.getElementById("email").innerText = data.email; 
             document.getElementById("phone_number").innerText = data.phone_number || '';
             document.getElementById("address").innerText = data.address || '';
-            
-            // === BẮT ĐẦU CẬP NHẬT: Dùng hàm formatDate ===
             document.getElementById("date_of_birth").innerText = formatDate(data.date_of_birth) || '';
-            // === KẾT THÚC CẬP NHẬT ===
-
             document.getElementById("doctor_name").innerText = data.doctor_name || 'Chưa được gán';
+
+            // === CẬP NHẬT MỚI: Hiển thị trạng thái AI ===
+            const statusSpan = document.getElementById("health_status");
+            const statusText = data.current_health_status || 'Chưa cập nhật';
+            statusSpan.innerText = statusText;
+            // Cập nhật class CSS
+            statusSpan.className = "fw-bold " + getStatusClass(statusText);
+            // === KẾT THÚC CẬP NHẬT ===
 
         } catch(err) { console.error("Lỗi khi lấy dữ liệu bệnh nhân!", err); }
     }
+    
+    // Tải thông tin lần đầu
     await loadPatientInfo();
+    
+    // === CẬP NHẬT MỚI: Tải lại thông tin cá nhân (để lấy trạng thái) mỗi 5s ===
+    setInterval(loadPatientInfo, 5000);
 
-    // Modal cập nhật thông tin
+
+    // Modal cập nhật thông tin (không đổi)
     document.getElementById("update-info-btn").addEventListener("click", ()=> {
-        // MỚI: Dùng dữ liệu gốc đã lưu
         document.getElementById("modalFullName").value = currentPatientData.full_name || '';
         document.getElementById("modalPhone").value = currentPatientData.phone_number || '';
         document.getElementById("modalAddress").value = currentPatientData.address || '';
-        
-        // === BẮT ĐẦU CẬP NHẬT: Dùng hàm formatDateForInput ===
         document.getElementById("modalDOB").value = formatDateForInput(currentPatientData.date_of_birth) || '';
-        // === KẾT THÚC CẬP NHẬT ===
-        
         updateInfoModal.show();
     });
 
+    // Lưu thông tin (không đổi)
     document.getElementById("saveInfoBtn").addEventListener("click", async ()=> {
-        const full_name = document.getElementById("modalFullName").value;
-        const phone_number = document.getElementById("modalPhone").value;
-        const address = document.getElementById("modalAddress").value;
-        const date_of_birth = document.getElementById("modalDOB").value;
-
+        const body = {
+            full_name: document.getElementById("modalFullName").value,
+            phone_number: document.getElementById("modalPhone").value,
+            address: document.getElementById("modalAddress").value,
+            date_of_birth: document.getElementById("modalDOB").value
+        };
         try {
             const res = await fetch(`/api/patients/update/${patientId}`, {
-                method:"PUT",
-                headers:{"Content-Type":"application/json"},
-                body: JSON.stringify({full_name, phone_number, address, date_of_birth})
+                method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body)
             });
             if(!res.ok) throw new Error("Cập nhật thất bại!");
-            await loadPatientInfo(); // Tải lại thông tin đã định dạng
+            await loadPatientInfo();
             updateInfoModal.hide();
         } catch(err) { alert(err.message); }
     });
     
-    // MỚI: Mở modal đổi mật khẩu
+    // Đổi mật khẩu (không đổi)
     document.getElementById("change-pass-btn").addEventListener("click", () => {
         document.getElementById("modalOldPass").value = "";
         document.getElementById("modalNewPass").value = "";
         document.getElementById("changePassMsg").classList.add('d-none');
         changePasswordModal.show();
     });
-
-    // MỚI: Xử lý đổi mật khẩu
     document.getElementById("saveNewPassBtn").addEventListener("click", async () => {
         const old_password = document.getElementById("modalOldPass").value;
         const new_password = document.getElementById("modalNewPass").value;
         const msgEl = document.getElementById("changePassMsg");
-
         try {
             const res = await fetch(`/api/auth/change-password`, {
-                method:"POST",
-                headers:{"Content-Type":"application/json"},
-                body: JSON.stringify({ 
-                    email: user.email, 
-                    role: user.role,
-                    old_password, 
-                    new_password 
-                })
+                method:"POST", headers:{"Content-Type":"application/json"},
+                body: JSON.stringify({ email: user.email, role: user.role, old_password, new_password })
             });
             const data = await res.json();
-            
             if (data.success) {
                 msgEl.textContent = data.message;
                 msgEl.className = 'alert alert-success';
@@ -357,7 +377,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
 
-    // Load dữ liệu realtime health
+    // Load dữ liệu realtime health (không đổi)
     async function loadLatestHealth(){
         try {
             const res = await fetch(`/api/health/latest/${patientId}`);
@@ -373,7 +393,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     loadLatestHealth(); setInterval(loadLatestHealth, 5000);
 
-    // Load chart
+    // Load chart (không đổi)
     let bpmChart;
     async function loadChart(range="day"){
         try {
@@ -394,7 +414,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     loadChart("day");
     document.getElementById("chart-range").addEventListener("change", e=> loadChart(e.target.value));
 
-    // Load alerts
+    // Load alerts (không đổi)
     async function loadAlerts(){
         try {
             const res = await fetch(`/api/alerts/${patientId}`);
@@ -432,22 +452,32 @@ document.addEventListener("DOMContentLoaded", async () => {
             const data = await res.json();
             const tbody = document.getElementById("history-table-body");
             tbody.innerHTML = "";
-            // Hiển thị 50 bản ghi gần nhất
+            
+            // === CẬP NHẬT MỚI: Hiển thị 50 bản ghi và thêm cột AI ===
             data.reverse().slice(0, 50).forEach(d=>{
                 const tr = document.createElement("tr");
+                const statusText = d.predicted_status || 'N/A';
+                const statusClass = getStatusClass(statusText);
+                
                 tr.innerHTML = `
                     <td>${d.bpm || ''}</td>
-                    <td>${d.ir_value || ''}</td>
+                    <td>${d.a_total ? d.a_total.toFixed(2) : ''}</td>
+                    <td class="${statusClass}">${statusText}</td>
+                    <td>${new Date(d.timestamp).toLocaleString()}</td>
                     <td>${d.accel_x || ''}</td>
                     <td>${d.accel_y || ''}</td>
-                    <td>${d.accel_z || ''}</td>
-                    <td>${d.a_total || ''}</td>
-                    <td>${new Date(d.timestamp).toLocaleString()}</td>`;
+                    <td>${d.accel_z || ''}</td>`;
                 tbody.appendChild(tr);
             });
+            // === KẾT THÚC CẬP NHẬT ===
+            
         } catch(err){ console.error(err); }
     }
-    loadHistory();
+    
+    // Tải lịch sử cho tab đầu tiên (nếu là history)
+    if(document.querySelector("#sidebar .nav-link.active").dataset.tab === 'history'){
+        loadHistory();
+    }
 });
 </script>
 
