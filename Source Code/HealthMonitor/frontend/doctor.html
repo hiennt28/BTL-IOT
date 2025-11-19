@@ -5,166 +5,235 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dashboard Bác sĩ</title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link rel="stylesheet" href="assets/css/style.css">
 <style>
-/* ... CSS không đổi ... */
-body {font-family: Arial, sans-serif;}
-.sidebar {width: 220px; position: fixed; top:0; left:0; height:100%; background:#343a40; padding-top:20px;}
-.sidebar .nav-link {color:#fff; display:block; padding:10px;}
-.sidebar .nav-link.active {background:#495057;}
-.content {margin-left:230px; padding:20px;}
-.card {margin-bottom:15px;}
-.tab-content {margin-top:15px;}
-.alert-actions button { margin-left: 5px; }
+/* Copy style chuẩn từ patient.html sang để đồng bộ */
+body {font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f2f5;}
+.sidebar {width: 250px; position: fixed; top:0; left:0; height:100%; background:#212529; padding-top:20px; transition: all 0.3s; z-index: 1000;}
+.sidebar .nav-link {color:rgba(255,255,255,0.75); display:flex; align-items:center; padding:12px 25px; margin-bottom: 5px; border-radius: 0 25px 25px 0; margin-right: 10px;}
+.sidebar .nav-link:hover {color: #fff; background: rgba(255,255,255,0.1);}
+.sidebar .nav-link.active {background:#0d6efd; color: white; box-shadow: 2px 2px 5px rgba(0,0,0,0.2);}
+.sidebar .nav-link i { margin-right: 10px; font-size: 1.1rem; }
 
-/* CSS cho User Profile Box */
-.user-profile {
-  text-align: center;
-  padding: 15px;
-  border-bottom: 1px solid #495057; /* Đường viền mờ */
-  margin-bottom: 10px;
+.content {margin-left:250px; padding:30px; min-height: 100vh;}
+
+.card {border: none; border-radius: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.03); background: white; margin-bottom: 20px; transition: transform 0.2s;}
+.card:hover { box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
+.card-header { background: transparent; border-bottom: 1px solid rgba(0,0,0,0.05); padding: 15px 20px; font-weight: 600; color: #495057; }
+
+.user-profile { text-align: center; padding: 20px 15px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 20px; }
+.user-profile img { width: 90px; height: 90px; border-radius: 50%; background: #fff; padding: 3px; margin-bottom: 15px; object-fit: cover;}
+.user-profile h5 { color: #fff; font-weight: 600; font-size: 1.1rem; margin-bottom: 5px; }
+.user-profile p { color: #adb5bd; font-size: 0.9rem; margin-bottom: 0; text-transform: capitalize; }
+
+.status-normal { color: #198754; }
+.status-light { color: #0dcaf0; }
+.status-medium { color: #fd7e14; }
+.status-strong { color: #dc3545; }
+.status-warning { color: #dc3545; font-weight: bold; }
+.status-unknown { color: #6c757d; }
+
+@keyframes blinker { 50% { opacity: 0.5; } }
+.blink { animation: blinker 1.5s linear infinite; color: #dc3545; }
+.device-active { color: #198754; }
+.device-inactive { color: #6c757d; }
+
+.chart-container {
+    position: relative;
+    height: 400px;
+    width: 100%;
+    background: white;
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.03);
 }
-.user-profile img {
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  background: #fff;
-  padding: 5px;
-  margin-bottom: 10px;
-}
-.user-profile h5 {
-  color: #fff;
-  font-weight: bold;
-  font-size: 1.1rem;
-  margin-bottom: 3px;
-}
-.user-profile p {
-  color: #adb5bd; /* Màu xám nhạt */
-  font-size: 0.9rem;
-  margin-bottom: 0;
-  text-transform: capitalize; /* Viết hoa chữ cái đầu */
-}
+.stat-value { font-size: 1.5rem; font-weight: 700; margin-top: 5px; }
+.stat-label { font-size: 0.85rem; color: #6c757d; text-transform: uppercase; letter-spacing: 0.5px; }
 </style>
 </head>
 <body>
 
 <div class="sidebar" id="sidebar">
-    <!-- MỚI: User Profile Box -->
     <div class="user-profile">
-       
+        <!-- Avatar bác sĩ -->
+        <img src="https://cdn-icons-png.flaticon.com/512/3774/3774299.png" alt="Avatar"> 
         <h5 id="userProfileName">Đang tải...</h5>
         <p id="userProfileRole">Bác sĩ</p>
     </div>
-    <!-- Kết thúc User Profile Box -->
 
-    <a href="#" class="nav-link active" data-tab="patients">Bệnh nhân phụ trách</a>
-    <a href="#" class="nav-link" data-tab="health">Theo dõi sức khỏe</a>
-    <a href="#" class="nav-link" data-tab="alerts">Cảnh báo</a>
-    <a href="#" class="nav-link" data-tab="profile">Thông tin cá nhân</a>
-    <hr>
-    <button id="logoutBtn" class="btn btn-danger w-100">Đăng xuất</button>
+    <a href="#" class="nav-link active" data-tab="patients"><i class="bi bi-people-fill"></i> Danh sách bệnh nhân</a>
+    <a href="#" class="nav-link" data-tab="health"><i class="bi bi-activity"></i> Theo dõi sức khỏe</a>
+    <a href="#" class="nav-link" data-tab="alerts"><i class="bi bi-bell-fill"></i> Cảnh báo</a>
+    <a href="#" class="nav-link" data-tab="profile"><i class="bi bi-person-circle"></i> Thông tin cá nhân</a>
+    
+    <div style="margin-top: auto; padding: 20px;">
+        <button id="logoutBtn" class="btn btn-outline-light w-100"><i class="bi bi-box-arrow-right"></i> Đăng xuất</button>
+    </div>
 </div>
 
 <div class="content">
 
-    <!-- Danh sách bệnh nhân -->
+    <!-- TAB: DANH SÁCH BỆNH NHÂN -->
     <div id="tab-patients" class="tab-content">
-        <h3>Bệnh nhân phụ trách</h3>
-        <table class="table table-bordered table-striped">
-            <thead>
-                <tr>
-                    <!-- SỬA: Đã thêm lại cột Email -->
-                    <th>#</th><th>Họ và tên</th><th>Email</th><th>Điện thoại</th><th>Hành động</th>
-                </tr>
-            </thead>
-            <tbody id="patients-table-body"></tbody>
-        </table>
+        <h3 class="mb-4 fw-bold text-dark">Quản lý bệnh nhân</h3>
+        <div class="card">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-4">#</th>
+                                <th>Họ và tên</th>
+                                <th>Email</th>
+                                <th>Điện thoại</th>
+                                <th>Hành động</th>
+                            </tr>
+                        </thead>
+                        <tbody id="patients-table-body">
+                            <!-- JS sẽ điền dữ liệu vào đây -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <!-- Theo dõi sức khỏe -->
-<!-- ... (Nội dung tab không đổi) ... -->
+    <!-- TAB: THEO DÕI SỨC KHỎE (REALTIME) -->
     <div id="tab-health" class="tab-content d-none">
-        <h3>Dữ liệu sức khỏe bệnh nhân</h3>
-        <label>Chọn bệnh nhân:</label>
-        <select id="select-patient" class="form-select w-25 mb-3"></select>
-
-        <div class="row">
-            <div class="col-md-2"><div class="card"><div class="card-body">BPM: <span id="bpm_val">0</span></div></div></div>
-            <div class="col-md-2"><div class="card"><div class="card-body">IR: <span id="ir_val">0</span></div></div></div>
-            <div class="col-md-2"><div class="card"><div class="card-body">Accel X: <span id="accel_x_val">0</span></div></div></div>
-            <div class="col-md-2"><div class="card"><div class="card-body">Accel Y: <span id="accel_y_val">0</span></div></div></div>
-            <div class="col-md-2"><div class="card"><div class="card-body">Accel Z: <span id="accel_z_val">0</span></div></div></div>
-            <div class="col-md-2"><div class="card"><div class="card-body">A total: <span id="a_total_val">0</span></div></div></div>
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h3 class="fw-bold text-dark mb-0">Theo dõi sức khỏe</h3>
+            <div class="d-flex align-items-center">
+                <label class="me-2 fw-bold text-secondary">Chọn bệnh nhân:</label>
+                <select id="select-patient" class="form-select shadow-sm border-primary" style="width: 250px;">
+                    <option value="">-- Chọn bệnh nhân --</option>
+                </select>
+            </div>
         </div>
 
-        <hr>
-        <label>Chọn khoảng thời gian:</label>
-        <select id="chart-range" class="form-select w-25 mb-3">
-            <option value="day">Ngày</option>
-            <option value="week">Tuần</option>
-            <option value="month">Tháng</option>
-        </select>
-        <canvas id="bpmChart" height="150"></canvas>
+        <!-- Khu vực hiển thị dữ liệu (Ẩn khi chưa chọn bệnh nhân) -->
+        <div id="health-dashboard" class="d-none">
+            <!-- Hàng 1: Thông tin trạng thái -->
+            <div class="row g-4 mb-4">
+                <div class="col-md-6">
+                    <div class="card h-100 bg-white">
+                        <div class="card-header bg-transparent border-0 pb-0">
+                            <i class="bi bi-cpu text-primary me-2"></i>Phân tích AI
+                        </div>
+                        <div class="card-body d-flex flex-column justify-content-center align-items-center text-center py-4">
+                            <div class="mb-2 text-muted small">Trạng thái hiện tại của BN</div>
+                            <div id="patient_health_status" class="fs-3 fw-bold status-unknown">Chưa có dữ liệu</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-header bg-transparent border-0 pb-0 d-flex justify-content-between align-items-center">
+                            <span><i class="bi bi-hdd-network text-success me-2"></i>Thiết bị đo</span>
+                            <span class="badge bg-light text-dark border" id="patient_device_serial">---</span>
+                        </div>
+                        <div class="card-body d-flex flex-column justify-content-center">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="text-muted">Kết nối:</span>
+                                <span id="patient_device_status" class="fw-bold">...</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="text-muted">Hoạt động:</span>
+                                <span id="patient_measuring_status" class="fw-bold device-inactive">...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hàng 2: Các chỉ số -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-2 col-6"><div class="card h-100 text-center border-bottom border-3 border-danger"><div class="card-body p-3"><div class="stat-label">BPM</div><div id="bpm_val" class="stat-value text-danger">0</div></div></div></div>
+                <div class="col-md-2 col-6"><div class="card h-100 text-center border-bottom border-3 border-info"><div class="card-body p-3"><div class="stat-label">IR</div><div id="ir_val" class="stat-value text-info">0</div></div></div></div>
+                <div class="col-md-2 col-4"><div class="card h-100 text-center"><div class="card-body p-3"><div class="stat-label">Accel X</div><div id="accel_x_val" class="stat-value text-secondary">0</div></div></div></div>
+                <div class="col-md-2 col-4"><div class="card h-100 text-center"><div class="card-body p-3"><div class="stat-label">Accel Y</div><div id="accel_y_val" class="stat-value text-secondary">0</div></div></div></div>
+                <div class="col-md-2 col-4"><div class="card h-100 text-center"><div class="card-body p-3"><div class="stat-label">Accel Z</div><div id="accel_z_val" class="stat-value text-secondary">0</div></div></div></div>
+                <div class="col-md-2 col-6"><div class="card h-100 text-center border-bottom border-3 border-primary"><div class="card-body p-3"><div class="stat-label">Lực tổng</div><div id="a_total_val" class="stat-value text-primary">0</div></div></div></div>
+            </div>
+
+            <!-- Hàng 3: Biểu đồ -->
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="card-title mb-0 text-secondary"><i class="bi bi-graph-up me-2"></i>Biểu đồ nhịp tim Real-time</h5>
+                        <select id="chart-range" class="form-select w-auto form-select-sm shadow-sm">
+                            <option value="day">Real-time (20 điểm gần nhất)</option>
+                            <option value="week">Trong tuần</option>
+                            <option value="month">Trong tháng</option>
+                        </select>
+                    </div>
+                    <div class="chart-container" style="box-shadow: none; border: 1px solid #f0f0f0;">
+                        <canvas id="bpmChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Thông báo khi chưa chọn BN -->
+        <div id="no-patient-selected" class="text-center py-5 text-muted">
+            <i class="bi bi-person-bounding-box fs-1 d-block mb-3"></i>
+            <h4>Vui lòng chọn bệnh nhân để xem dữ liệu</h4>
+        </div>
     </div>
 
-    <!-- Cảnh báo -->
-<!-- ... (Nội dung tab không đổi) ... -->
+    <!-- TAB: CẢNH BÁO -->
     <div id="tab-alerts" class="tab-content d-none">
-        <h3>Cảnh báo bệnh nhân</h3>
-        <div id="alerts-table" class="list-group"></div>
+        <h3 class="mb-4 fw-bold text-dark">Cảnh báo từ bệnh nhân</h3>
+        <div class="card">
+            <div class="card-body p-0">
+                <div id="alerts-table" class="list-group list-group-flush"></div>
+            </div>
+        </div>
     </div>
 
-    <!-- MỚI: Thông tin cá nhân bác sĩ -->
-<!-- ... (Nội dung tab không đổi) ... -->
+    <!-- TAB: HỒ SƠ BÁC SĨ -->
     <div id="tab-profile" class="tab-content d-none">
-        <h3>Thông tin cá nhân</h3>
-        <p>Họ và tên: <span id="doc_full_name"></span></p>
-        <p>Email: <span id="doc_email"></span></p>
-        <p>Số điện thoại: <span id="doc_phone_number"></span></p>
-        <p>Địa chỉ: <span id="doc_address"></span></p>
-        <p>Ngày sinh: <span id="doc_date_of_birth"></span></p>
-        <p>Chức danh: <span id="doc_title"></span></p>
-        <p>Chuyên khoa: <span id="doc_specialty"></span></p>
-        <button id="doc-update-info-btn" class="btn btn-primary">Cập nhật thông tin</button>
-        <button id="doc-change-pass-btn" class="btn btn-warning">Đổi mật khẩu</button>
+        <h3 class="mb-4 fw-bold text-dark">Hồ sơ bác sĩ</h3>
+        <div class="card">
+            <div class="card-body p-4">
+                <div class="row">
+                    <div class="col-md-6 border-end">
+                        <h5 class="text-primary mb-4">Thông tin cá nhân</h5>
+                        <div class="mb-3 row"><label class="col-sm-4 text-muted">Họ và tên</label><div class="col-sm-8 fw-bold" id="doc_full_name">...</div></div>
+                        <div class="mb-3 row"><label class="col-sm-4 text-muted">Email</label><div class="col-sm-8" id="doc_email">...</div></div>
+                        <div class="mb-3 row"><label class="col-sm-4 text-muted">Điện thoại</label><div class="col-sm-8" id="doc_phone_number">...</div></div>
+                        <div class="mb-3 row"><label class="col-sm-4 text-muted">Ngày sinh</label><div class="col-sm-8" id="doc_date_of_birth">...</div></div>
+                    </div>
+                    <div class="col-md-6 ps-md-5">
+                        <h5 class="text-primary mb-4">Thông tin công tác</h5>
+                        <div class="mb-3 row"><label class="col-sm-4 text-muted">Chức danh</label><div class="col-sm-8 fw-bold" id="doc_title">...</div></div>
+                        <div class="mb-3 row"><label class="col-sm-4 text-muted">Chuyên khoa</label><div class="col-sm-8" id="doc_specialty">...</div></div>
+                        <div class="mb-3 row"><label class="col-sm-4 text-muted">Địa chỉ</label><div class="col-sm-8" id="doc_address">...</div></div>
+                    </div>
+                </div>
+                <div class="text-end mt-4 pt-3 border-top">
+                    <button id="doc-change-pass-btn" class="btn btn-light me-2">Đổi mật khẩu</button>
+                    <button id="doc-update-info-btn" class="btn btn-primary">Cập nhật hồ sơ</button>
+                </div>
+            </div>
+        </div>
     </div>
 
 </div>
 
-<!-- MỚI: Modal cập nhật thông tin bác sĩ -->
-<!-- ... (Nội dung modal không đổi) ... -->
+<!-- MODAL CẬP NHẬT BÁC SĨ -->
 <div class="modal fade" id="updateDoctorInfoModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Cập nhật thông tin cá nhân</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
+      <div class="modal-header"><h5 class="modal-title">Cập nhật hồ sơ</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
       <div class="modal-body">
-          <div class="mb-3">
-            <label class="form-label">Họ và tên</label>
-            <input type="text" class="form-control" id="modalDocFullName">
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Số điện thoại</label>
-            <input type="text" class="form-control" id="modalDocPhone">
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Địa chỉ</label>
-            <input type="text" class="form-control" id="modalDocAddress">
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Ngày sinh</label>
-            <input type="date" class="form-control" id="modalDocDOB">
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Chức danh</label>
-            <input type="text" class="form-control" id="modalDocTitle">
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Chuyên khoa</label>
-            <input type="text" class="form-control" id="modalDocSpecialty">
-          </div>
+          <div class="mb-3"><label class="form-label">Họ và tên</label><input type="text" class="form-control" id="modalDocFullName"></div>
+          <div class="mb-3"><label class="form-label">Số điện thoại</label><input type="text" class="form-control" id="modalDocPhone"></div>
+          <div class="mb-3"><label class="form-label">Địa chỉ</label><input type="text" class="form-control" id="modalDocAddress"></div>
+          <div class="mb-3"><label class="form-label">Ngày sinh</label><input type="date" class="form-control" id="modalDocDOB"></div>
+          <div class="mb-3"><label class="form-label">Chức danh</label><input type="text" class="form-control" id="modalDocTitle"></div>
+          <div class="mb-3"><label class="form-label">Chuyên khoa</label><input type="text" class="form-control" id="modalDocSpecialty"></div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
@@ -174,25 +243,15 @@ body {font-family: Arial, sans-serif;}
   </div>
 </div>
 
-<!-- MỚI: Modal Đổi mật khẩu (dùng chung) -->
-<!-- ... (Nội dung modal không đổi) ... -->
+<!-- MODAL ĐỔI MẬT KHẨU (Chung) -->
 <div class="modal fade" id="changePasswordModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Đổi mật khẩu</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
+      <div class="modal-header"><h5 class="modal-title">Đổi mật khẩu</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
       <div class="modal-body">
-          <div id="changePassMsg" class="alert d-none" role="alert"></div>
-          <div class="mb-3">
-            <label for="modalOldPass" class="form-label">Mật khẩu cũ</label>
-            <input type="password" class="form-control" id="modalOldPass" required>
-          </div>
-          <div class="mb-3">
-            <label for="modalNewPass" class="form-label">Mật khẩu mới</label>
-            <input type="password" class="form-control" id="modalNewPass" required>
-          </div>
+          <div id="changePassMsg" class="alert d-none"></div>
+          <div class="mb-3"><label class="form-label">Mật khẩu cũ</label><input type="password" class="form-control" id="modalOldPass"></div>
+          <div class="mb-3"><label class="form-label">Mật khẩu mới</label><input type="password" class="form-control" id="modalNewPass"></div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
@@ -202,296 +261,10 @@ body {font-family: Arial, sans-serif;}
   </div>
 </div>
 
-
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-document.addEventListener("DOMContentLoaded", async () => {
-    const user = JSON.parse(localStorage.getItem("user"));
-    if(!user || user.role !== 'doctor'){ window.location.href="/login.html"; return; }
-    
-    const doctorId = user.doctor_id;
-
-    // MỚI: Tải thông tin user lên sidebar
-    document.getElementById("userProfileName").innerText = user.full_name;
-    document.getElementById("userProfileRole").innerText = user.role;
-    
-    let bpmChart;
-    let updateDoctorInfoModal = new bootstrap.Modal(document.getElementById('updateDoctorInfoModal'));
-    let changePasswordModal = new bootstrap.Modal(document.getElementById('changePasswordModal'));
-
-    // Sidebar tab switching
-
-    document.querySelectorAll("#sidebar .nav-link").forEach(link => {
-        link.addEventListener("click", e => {
-            e.preventDefault();
-            document.querySelectorAll("#sidebar .nav-link").forEach(l=>l.classList.remove("active"));
-            link.classList.add("active");
-            document.querySelectorAll(".tab-content").forEach(t=>t.classList.add("d-none"));
-            document.getElementById("tab-" + link.dataset.tab).classList.remove("d-none");
-            
-            // Tải lại dữ liệu khi chuyển tab
-            const tab = link.dataset.tab;
-            if(tab === 'alerts') loadAlerts();
-            if(tab === 'patients') loadPatients();
-            if(tab === 'profile') loadDoctorInfo();
-        });
-    });
-
-    document.getElementById("logoutBtn").addEventListener("click", ()=> {
-        localStorage.removeItem("user");
-        window.location.href="/login.html";
-    });
-
-    // Load danh sách bệnh nhân
-    async function loadPatients(){
-        try{
-            const res = await fetch(`/api/doctors/${doctorId}/patients`);
-            if(!res.ok) return;
-            const data = await res.json();
-            const tbody = document.getElementById("patients-table-body");
-            const select = document.getElementById("select-patient");
-            tbody.innerHTML = ""; select.innerHTML="";
-            
-            if (data.length === 0) {
-                 // SỬA: Cập nhật colspan
-                 tbody.innerHTML = "<tr><td colspan='5'>Chưa có bệnh nhân nào.</td></tr>";
-                 select.innerHTML = "<option>Chưa có bệnh nhân</option>";
-                 return;
-            }
-            
-            data.forEach((p,i)=>{
-                const tr = document.createElement("tr");
-                // SỬA LỖI: Thêm lại p.email
-                tr.innerHTML = `<td>${i+1}</td><td>${p.full_name}</td><td>${p.email}</td><td>${p.phone_number || ''}</td>
-                                <td><button class="btn btn-primary btn-sm view-btn" data-id="${p.patient_id}">Xem</button></td>`;
-                tbody.appendChild(tr);
-                const opt = document.createElement("option");
-                opt.value = p.patient_id; opt.text = p.full_name;
-                select.appendChild(opt);
-            });
-            
-            // Tải dữ liệu sức khỏe cho bệnh nhân đầu tiên
-            if(select.value) loadHealth(select.value, 'day');
-            
-        } catch(err){ console.error(err); }
-    }
-    await loadPatients();
-
-    // Theo dõi sức khỏe theo patient
-
-    async function loadHealth(patientId, range="day"){
-        if(!patientId) return;
-        try {
-            // Dữ liệu mới nhất
-            const res = await fetch(`/api/health/latest/${patientId}`);
-            if(res.ok){
-                const data = await res.json();
-                document.getElementById("bpm_val").innerText = data.bpm || 'N/A';
-                document.getElementById("ir_val").innerText = data.ir_value || 'N/A';
-                document.getElementById("accel_x_val").innerText = data.accel_x || 'N/A';
-                document.getElementById("accel_y_val").innerText = data.accel_y || 'N/A';
-                document.getElementById("accel_z_val").innerText = data.accel_z || 'N/A';
-                document.getElementById("a_total_val").innerText = data.a_total || 'N/A';
-            } else {
-                 ['bpm_val','ir_val','accel_x_val','accel_y_val','accel_z_val','a_total_val'].forEach(id => document.getElementById(id).innerText = 'N/A');
-            }
-
-            // Lịch sử (biểu đồ)
-            const histRes = await fetch(`/api/health/history/${patientId}?range=${range}`);
-            if(histRes.ok){
-                const histData = await histRes.json();
-                const ctx = document.getElementById("bpmChart").getContext("2d");
-                const labels = histData.map(d=>new Date(d.timestamp).toLocaleString());
-                const bpmValues = histData.map(d=>d.bpm);
-                if(bpmChart) bpmChart.destroy();
-                bpmChart = new Chart(ctx,{
-                    type:"line",
-                    data:{labels,datasets:[{label:"BPM",data:bpmValues,borderColor:"red",fill:false}]},
-                    options:{responsive:true,maintainAspectRatio:false}
-                });
-            }
-        } catch(err){ console.error(err); }
-    }
-
-    const selectPatient = document.getElementById("select-patient");
-    selectPatient.addEventListener("change", e=> loadHealth(e.target.value, document.getElementById("chart-range").value));
-    document.getElementById("chart-range").addEventListener("change", e=> loadHealth(selectPatient.value, e.target.value));
-
-    // Xem cảnh báo bệnh nhân
-
-    async function loadAlerts(){
-        try {
-            const res = await fetch(`/api/doctors/${doctorId}/alerts`);
-            if(!res.ok) return;
-            const data = await res.json();
-            const container = document.getElementById("alerts-table");
-            container.innerHTML = "";
-            
-            if (data.length === 0) {
-                container.innerHTML = "<p>Không có cảnh báo nào.</p>";
-                return;
-            }
-            
-            data.forEach(a=>{
-                const div = document.createElement("div");
-                let statusClass = 'list-group-item-secondary';
-                if (a.status === 'new') statusClass = 'list-group-item-danger';
-                if (a.status === 'viewed') statusClass = 'list-group-item-warning';
-                
-                div.className = "list-group-item d-flex justify-content-between align-items-center " + statusClass;
-                div.innerHTML = `
-                    <div>
-                        <strong>${a.alert_type} (BN: ${a.full_name})</strong>
-                        <p>${a.message}</p>
-                        <small class="text-muted">${new Date(a.timestamp).toLocaleString()} - Trạng thái: ${a.status}</small>
-                    </div>
-                    <div class="alert-actions">
-                        ${a.status === 'new' ? `<button class="btn btn-warning btn-sm mark-viewed" data-id="${a.alert_id}">Đã xem</button>` : ''}
-                        ${a.status !== 'handled' ? `<button class="btn btn-success btn-sm mark-handled" data-id="${a.alert_id}">Đã xử lý</button>` : ''}
-                    </div>
-                `;
-                container.appendChild(div);
-            });
-            
-            // Thêm listeners cho các nút xử lý cảnh báo
-            addAlertListeners();
-            
-        } catch(err){ console.error(err); }
-    }
-    
-    // MỚI: Xử lý sự kiện nút cảnh báo
-
-    function addAlertListeners() {
-        document.querySelectorAll('.mark-viewed').forEach(btn => {
-            btn.addEventListener('click', () => updateAlertStatus(btn.dataset.id, 'viewed'));
-        });
-        document.querySelectorAll('.mark-handled').forEach(btn => {
-            btn.addEventListener('click', () => updateAlertStatus(btn.dataset.id, 'handled'));
-        });
-    }
-    
-    // MỚI: Hàm gọi API cập nhật cảnh báo
-
-    async function updateAlertStatus(alertId, status) {
-        try {
-            const res = await fetch(`/api/doctors/alerts/${alertId}`, {
-                method: 'PUT',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ status: status, doctor_id: doctorId })
-            });
-            if (res.ok) {
-                loadAlerts(); // Tải lại danh sách cảnh báo
-            } else {
-                alert("Cập nhật thất bại!");
-            }
-        } catch (err) {
-            console.error(err);
-            alert("Lỗi khi cập nhật cảnh báo!");
-        }
-    }
-    
-    // MỚI: Load thông tin cá nhân bác sĩ
-
-    async function loadDoctorInfo() {
-        try {
-            const res = await fetch(`/api/doctors/${doctorId}`);
-            if(!res.ok) throw new Error("Không tìm thấy thông tin bác sĩ!");
-            const data = await res.json();
-            
-            document.getElementById("doc_full_name").innerText = data.full_name;
-            document.getElementById("doc_email").innerText = data.email;
-            document.getElementById("doc_phone_number").innerText = data.phone_number || '';
-            document.getElementById("doc_address").innerText = data.address || '';
-            document.getElementById("doc_date_of_birth").innerText = data.date_of_birth || '';
-            document.getElementById("doc_title").innerText = data.title || '';
-            document.getElementById("doc_specialty").innerText = data.specialty || '';
-        } catch(err) { console.error("Lỗi khi lấy dữ liệu bác sĩ!", err); }
-    }
-
-    // MỚI: Mở modal cập nhật thông tin bác sĩ
-
-    document.getElementById("doc-update-info-btn").addEventListener("click", ()=> {
-        document.getElementById("modalDocFullName").value = document.getElementById("doc_full_name").innerText;
-        document.getElementById("modalDocPhone").value = document.getElementById("doc_phone_number").innerText;
-        document.getElementById("modalDocAddress").value = document.getElementById("doc_address").innerText;
-        document.getElementById("modalDocDOB").value = document.getElementById("doc_date_of_birth").innerText;
-        document.getElementById("modalDocTitle").value = document.getElementById("doc_title").innerText;
-        document.getElementById("modalDocSpecialty").value = document.getElementById("doc_specialty").innerText;
-        updateDoctorInfoModal.show();
-    });
-    
-    // MỚI: Lưu thông tin bác sĩ
-
-    document.getElementById("saveDoctorInfoBtn").addEventListener("click", async () => {
-        const body = {
-            full_name: document.getElementById("modalDocFullName").value,
-            phone_number: document.getElementById("modalDocPhone").value,
-            address: document.getElementById("modalDocAddress").value,
-            date_of_birth: document.getElementById("modalDocDOB").value,
-            title: document.getElementById("modalDocTitle").value,
-            specialty: document.getElementById("modalDocSpecialty").value
-        };
-
-        try {
-            const res = await fetch(`/api/doctors/update/${doctorId}`, {
-                method:"PUT",
-                headers:{"Content-Type":"application/json"},
-                body: JSON.stringify(body)
-            });
-            if(!res.ok) throw new Error("Cập nhật thất bại!");
-            await loadDoctorInfo();
-            updateDoctorInfoModal.hide();
-        } catch(err) { alert(err.message); }
-    });
-    
-    // MỚI: Mở modal đổi mật khẩu
-
-    document.getElementById("doc-change-pass-btn").addEventListener("click", () => {
-        document.getElementById("modalOldPass").value = "";
-        document.getElementById("modalNewPass").value = "";
-        document.getElementById("changePassMsg").classList.add('d-none');
-        changePasswordModal.show();
-    });
-
-    // MỚI: Xử lý đổi mật khẩu
-
-    document.getElementById("saveNewPassBtn").addEventListener("click", async () => {
-        const old_password = document.getElementById("modalOldPass").value;
-        const new_password = document.getElementById("modalNewPass").value;
-        const msgEl = document.getElementById("changePassMsg");
-
-        try {
-            const res = await fetch(`/api/auth/change-password`, {
-                method:"POST",
-                headers:{"Content-Type":"application/json"},
-                body: JSON.stringify({ 
-                    email: user.email, 
-                    role: user.role,
-                    old_password, 
-                    new_password 
-                })
-            });
-            const data = await res.json();
-            
-            if (data.success) {
-                msgEl.textContent = data.message;
-                msgEl.className = 'alert alert-success';
-                setTimeout(() => changePasswordModal.hide(), 1500);
-            } else {
-                msgEl.textContent = data.message;
-                msgEl.className = 'alert alert-danger';
-            }
-        } catch(err) {
-            msgEl.textContent = "Lỗi máy chủ!";
-            msgEl.className = 'alert alert-danger';
-        }
-    });
-
-    // Tải dữ liệu ban đầu
-    loadAlerts();
-});
-</script>
+<!-- Gọi file JS riêng cho bác sĩ -->
+<script src="assets/js/doctor.js"></script>
 
 </body>
 </html>

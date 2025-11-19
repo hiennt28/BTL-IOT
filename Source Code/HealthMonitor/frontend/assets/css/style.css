@@ -1,30 +1,35 @@
 body {
-  font-family: Arial, sans-serif;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   display: flex;
   margin: 0;
-  background: #f8fafc;
+  background: #f0f2f5;
 }
 
+/* --- SIDEBAR --- */
 .sidebar {
   width: 250px;
-  background: #2b3d52;
+  background: #212529;
   color: white;
   padding: 20px;
   height: 100vh;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1000; /* Sidebar nằm dưới Modal Bootstrap (1055) */
+  transition: all 0.3s;
 }
 
-.sidebar h2 {
-  margin-top: 0;
-}
-
+.sidebar h2 { margin-top: 0; }
 .sidebar ul { list-style: none; padding: 0; }
 .sidebar li { margin: 15px 0; }
-.sidebar a { color: white; text-decoration: none; font-weight: 500; }
-.sidebar a:hover { text-decoration: underline; }
+.sidebar a { color: rgba(255,255,255,0.75); text-decoration: none; font-weight: 500; }
+.sidebar a:hover { color: #fff; text-decoration: none; }
 
+/* --- CONTENT --- */
 .content {
   flex: 1;
   padding: 25px;
+  margin-left: 250px; /* Khớp với width của sidebar */
   overflow-y: auto;
 }
 
@@ -34,11 +39,13 @@ body {
 .info-card, .card {
   background: white;
   padding: 20px;
-  border-radius: 10px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  border-radius: 15px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.03);
   margin-bottom: 20px;
+  border: none;
 }
 
+/* --- TABLE --- */
 .data-table {
   width: 100%;
   border-collapse: collapse;
@@ -46,64 +53,33 @@ body {
 }
 
 .data-table th, .data-table td {
-  border: 1px solid #ccc;
-  padding: 10px;
+  border: 1px solid #dee2e6;
+  padding: 12px;
 }
 
 .data-table th {
-  background: #e9eef5;
+  background: #e9ecef;
+  color: #495057;
 }
 
-.btn, .btn-secondary {
-  background: #2b3d52;
-  color: white;
-  border: none;
-  padding: 8px 12px;
+/* --- BUTTONS --- */
+.btn {
+  padding: 8px 16px;
   border-radius: 6px;
   cursor: pointer;
-  margin-top: 10px;
+  font-weight: 500;
+  transition: all 0.2s;
 }
+.btn:hover { opacity: 0.9; }
 
-.btn-secondary {
-  background: gray;
-}
-
-.btn:hover {
-  opacity: 0.9;
-}
-
-.range-buttons {
-  margin-bottom: 10px;
-}
-
+.range-buttons { margin-bottom: 10px; }
 .range-buttons button {
   margin-right: 5px;
-  background: #4b6584;
+  background: #6c757d;
   color: white;
   border: none;
   padding: 6px 12px;
   border-radius: 5px;
   cursor: pointer;
 }
-
-.range-buttons button:hover {
-  background: #3867d6;
-}
-
-/* Modal */
-.modal {
-  display: none;
-  position: fixed;
-  z-index: 10;
-  left: 0; top: 0;
-  width: 100%; height: 100%;
-  background-color: rgba(0,0,0,0.4);
-}
-
-.modal-content {
-  background-color: #fff;
-  margin: 10% auto;
-  padding: 20px;
-  border-radius: 10px;
-  width: 400px;
-}
+.range-buttons button:hover { background: #5a6268; }
