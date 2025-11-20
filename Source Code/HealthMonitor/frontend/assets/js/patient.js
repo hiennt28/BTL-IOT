@@ -1,14 +1,39 @@
 // assets/js/patient.js
 
-// === Các hàm tiện ích ===
 function formatDate(dateString) {
+    if (!dateString) return '';
+    try {
+        const date = new Date(dateString);
+        // Dùng getUTC... để lấy giá trị gốc từ server, không cho trình duyệt tự cộng giờ
+        const day = String(date.getUTCDate()).padStart(2, '0');
+        const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+        const year = date.getUTCFullYear();
+        return `${day}/${month}/${year}`;
+    } catch (e) { return dateString; }
+}
+
+function formatDateTime(dateString) {
     if (!dateString) return '';
     try {
         const date = new Date(dateString);
         const day = String(date.getUTCDate()).padStart(2, '0');
         const month = String(date.getUTCMonth() + 1).padStart(2, '0');
         const year = date.getUTCFullYear();
-        return `${day}/${month}/${year}`;
+        const hours = String(date.getUTCHours()).padStart(2, '0');
+        const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+        const seconds = String(date.getUTCSeconds()).padStart(2, '0');
+        return `${hours}:${minutes}:${seconds} ${day}/${month}/${year}`;
+    } catch (e) { return dateString; }
+}
+
+function formatTime(dateString) {
+    if (!dateString) return '';
+    try {
+        const date = new Date(dateString);
+        const hours = String(date.getUTCHours()).padStart(2, '0');
+        const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+        const seconds = String(date.getUTCSeconds()).padStart(2, '0');
+        return `${hours}:${minutes}:${seconds}`;
     } catch (e) { return dateString; }
 }
 
@@ -22,6 +47,7 @@ function formatDateForInput(dateString) {
         return `${year}-${month}-${day}`;
      } catch (e) { return ''; }
 }
+// ============================================================
 
 function getStatusClass(status) {
     if (!status) return 'status-unknown';
@@ -41,44 +67,33 @@ function formatValue(val) {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
-    console.log("Patient Dashboard - Fixed Buttons Version");
-
     const user = JSON.parse(localStorage.getItem("user"));
     if (!user || user.role !== 'patient') { window.location.href="/login.html"; return; }
     
     const patientId = user.patient_id;
     let currentPatientData = {};
 
-    // --- 1. KHỞI TẠO MODAL (An toàn) ---
     let updateInfoModal = null;
     let changePasswordModal = null;
     
     try {
         const updateEl = document.getElementById('updateInfoModal');
         if(updateEl) updateInfoModal = new bootstrap.Modal(updateEl);
-        
         const passEl = document.getElementById('changePasswordModal');
         if(passEl) changePasswordModal = new bootstrap.Modal(passEl);
-    } catch(e) { console.error("Lỗi khởi tạo Modal:", e); }
+    } catch(e) { console.error(e); }
 
-    // --- 2. GẮN SỰ KIỆN NÚT BẤM (Ưu tiên chạy trước) ---
-    
-    // Nút mở modal Cập nhật thông tin
     const updateInfoBtn = document.getElementById("update-info-btn");
     if(updateInfoBtn) {
         updateInfoBtn.addEventListener("click", () => {
-            console.log("Click Update Info");
             if(document.getElementById("modalFullName")) document.getElementById("modalFullName").value = currentPatientData.full_name || '';
             if(document.getElementById("modalPhone")) document.getElementById("modalPhone").value = currentPatientData.phone_number || '';
             if(document.getElementById("modalAddress")) document.getElementById("modalAddress").value = currentPatientData.address || '';
             if(document.getElementById("modalDOB")) document.getElementById("modalDOB").value = formatDateForInput(currentPatientData.date_of_birth) || '';
-            
             if(updateInfoModal) updateInfoModal.show();
-            else alert("Lỗi: Không tìm thấy Modal cập nhật!");
         });
     }
 
-    // Nút Lưu thông tin
     const saveInfoBtn = document.getElementById("saveInfoBtn");
     if(saveInfoBtn) {
         saveInfoBtn.addEventListener("click", async () => {
@@ -90,34 +105,26 @@ document.addEventListener("DOMContentLoaded", async () => {
             };
             try {
                 const res = await fetch(`/api/patients/update/${patientId}`, { 
-                    method:"PUT", 
-                    headers:{"Content-Type":"application/json"}, 
-                    body: JSON.stringify(body)
+                    method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body)
                 });
                 if(res.ok) {
                     alert("Cập nhật thành công!");
                     await loadPatientInfo(); 
                     if(updateInfoModal) updateInfoModal.hide();
-                } else {
-                    alert("Cập nhật thất bại!");
-                }
+                } else { alert("Cập nhật thất bại!"); }
             } catch(err) { alert("Lỗi kết nối server!"); }
         });
     }
     
-    // Nút mở modal Đổi mật khẩu
     const changePassBtn = document.getElementById("change-pass-btn");
     if(changePassBtn) {
         changePassBtn.addEventListener("click", () => {
-            console.log("Click Change Pass");
             if(document.getElementById("modalOldPass")) document.getElementById("modalOldPass").value = "";
             if(document.getElementById("modalNewPass")) document.getElementById("modalNewPass").value = "";
             if(changePasswordModal) changePasswordModal.show();
-            else alert("Lỗi: Không tìm thấy Modal đổi mật khẩu!");
         });
     }
 
-    // Nút Lưu mật khẩu mới
     const saveNewPassBtn = document.getElementById("saveNewPassBtn");
     if(saveNewPassBtn) {
         saveNewPassBtn.addEventListener("click", async () => {
@@ -125,18 +132,16 @@ document.addEventListener("DOMContentLoaded", async () => {
             const new_password = document.getElementById("modalNewPass").value;
             try {
                 const res = await fetch(`/api/auth/change-password`, { 
-                    method:"POST", 
-                    headers:{"Content-Type":"application/json"}, 
+                    method:"POST", headers:{"Content-Type":"application/json"}, 
                     body: JSON.stringify({ email: user.email, role: user.role, old_password, new_password }) 
                 });
                 const data = await res.json();
                 alert(data.message);
                 if(data.success && changePasswordModal) changePasswordModal.hide();
-            } catch(err) { alert("Lỗi máy chủ khi đổi mật khẩu"); }
+            } catch(err) { alert("Lỗi máy chủ"); }
         });
     }
 
-    // Nút Logout
     const logoutBtn = document.getElementById("logoutBtn");
     if(logoutBtn) {
         logoutBtn.addEventListener("click", ()=> {
@@ -145,7 +150,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 
-    // Tab Switching
     document.querySelectorAll("#sidebar .nav-link").forEach(link => {
         link.addEventListener("click", e => {
             e.preventDefault();
@@ -167,16 +171,14 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     });
 
-    // --- 3. CÁC HÀM LOAD DỮ LIỆU (Chạy sau cùng) ---
-
-    // Update Profile UI
     if(document.getElementById("userProfileName")) document.getElementById("userProfileName").innerText = user.full_name;
     if(document.getElementById("userProfileRole")) document.getElementById("userProfileRole").innerText = user.role;
 
     async function loadPatientInfo() {
         try {
-            const res = await fetch(`/api/patients/${patientId}`);
-            if(!res.ok) throw new Error("Không tìm thấy dữ liệu!");
+            const res = await fetch(`/api/patients/${patientId}?t=${new Date().getTime()}`);
+            if(!res.ok) return; 
+            
             const data = await res.json();
             currentPatientData = data; 
 
@@ -200,16 +202,28 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             if (data.device_serial) {
                 if(deviceSerialEl) deviceSerialEl.innerText = data.device_serial;
-                if(deviceStatusEl) deviceStatusEl.innerText = data.device_status || 'Offline';
+                
+                if(deviceStatusEl) {
+                    const status = (data.device_status || 'Offline').toLowerCase();
+                    deviceStatusEl.innerText = status.charAt(0).toUpperCase() + status.slice(1);
+                    if (status === 'online') {
+                        deviceStatusEl.className = "fw-bold text-success"; 
+                    } else {
+                        deviceStatusEl.className = "fw-bold text-secondary"; 
+                    }
+                }
                 updateMeasuringUI(data.is_measuring === 1);
             } else {
                 if(deviceSerialEl) deviceSerialEl.innerText = "Chưa gán";
+                if(deviceStatusEl) {
+                    deviceStatusEl.innerText = "N/A";
+                    deviceStatusEl.className = "fw-bold text-secondary";
+                }
                 disableMeasuringControls();
             }
         } catch(err) { console.error(err); }
     }
 
-    // Device Control
     function updateMeasuringUI(isMeasuring) {
         const statusText = document.getElementById("measuring_status_text");
         const btnStart = document.getElementById("btn-start-measure");
@@ -247,17 +261,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     async function controlDevice(action) {
         try {
             const res = await fetch(`/api/patients/${patientId}/device/control`, {
-                method: "POST",
-                headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({ action: action })
+                method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ action: action })
             });
             const data = await res.json();
-            if (data.success) { await loadPatientInfo(); } 
-            else { alert("Lỗi: " + data.message); }
+            if (data.success) { await loadPatientInfo(); } else { alert("Lỗi: " + data.message); }
         } catch (err) { alert("Lỗi kết nối server!"); }
     }
 
-    // Chart Logic
     let bpmChart = null;
     let latestTimestamp = null;
 
@@ -278,7 +288,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const newTime = new Date(data.timestamp).getTime();
                 if (!latestTimestamp || newTime > latestTimestamp) {
                     latestTimestamp = newTime;
-                    const label = new Date(data.timestamp).toLocaleTimeString();
+                    const label = formatTime(data.timestamp);
                     const bpm = (data.bpm === null || data.bpm === undefined) ? 0 : data.bpm;
                     addDataToChart(bpmChart, label, bpm);
                 }
@@ -306,7 +316,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             if(range === 'day' && data.length > 20) data = data.slice(data.length - 20);
 
-            const labels = data.map(d=> new Date(d.timestamp).toLocaleTimeString());
+            const labels = data.map(d=> formatTime(d.timestamp));
             const bpmValues = data.map(d => (d.bpm === null || d.bpm === undefined) ? 0 : d.bpm);
             
             if(data.length > 0) latestTimestamp = new Date(data[data.length-1].timestamp).getTime();
@@ -366,7 +376,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const div = document.createElement("div");
                 let statusClass = a.status === 'new' ? 'list-group-item-danger' : 'list-group-item-light';
                 div.className = "list-group-item " + statusClass;
-                div.innerHTML = `<div class="d-flex justify-content-between"><strong>${a.alert_type}</strong><small>${new Date(a.timestamp).toLocaleString()}</small></div><p class="mb-0">${a.message}</p>`;
+                div.innerHTML = `<div class="d-flex justify-content-between"><strong>${a.alert_type}</strong><small>${formatDateTime(a.timestamp)}</small></div><p class="mb-0">${a.message}</p>`;
                 container.appendChild(div);
             });
         } catch(err){ console.error(err); }
@@ -382,15 +392,18 @@ document.addEventListener("DOMContentLoaded", async () => {
             tbody.innerHTML = "";
             data.reverse().slice(0, 50).forEach(d=>{
                 const tr = document.createElement("tr");
-                tr.innerHTML = `<td>${formatValue(d.bpm)}</td><td>${d.a_total ? d.a_total.toFixed(2) : '0.00'}</td><td class="${getStatusClass(d.predicted_status)} fw-bold">${d.predicted_status || 'N/A'}</td><td>${new Date(d.timestamp).toLocaleString()}</td><td>${formatValue(d.accel_x)}</td><td>${formatValue(d.accel_y)}</td><td>${formatValue(d.accel_z)}</td>`;
+                tr.innerHTML = `<td>${formatValue(d.bpm)}</td><td>${d.a_total ? d.a_total.toFixed(2) : '0.00'}</td><td class="${getStatusClass(d.predicted_status)} fw-bold">${d.predicted_status || 'N/A'}</td><td>${formatDateTime(d.timestamp)}</td><td>${formatValue(d.accel_x)}</td><td>${formatValue(d.accel_y)}</td><td>${formatValue(d.accel_z)}</td>`;
                 tbody.appendChild(tr);
             });
         } catch(err){ console.error(err); }
     }
 
-    // BẮT ĐẦU CHẠY CÁC HÀM LOAD DỮ LIỆU
     await loadPatientInfo();
     loadLatestHealth();
-    setInterval(loadLatestHealth, 3000);
     loadAlerts();
+
+    setInterval(() => {
+        loadLatestHealth(); 
+        loadPatientInfo();  
+    }, 3000);
 });

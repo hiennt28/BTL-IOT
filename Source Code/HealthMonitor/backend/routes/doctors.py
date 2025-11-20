@@ -7,7 +7,6 @@ doctors_bp = Blueprint('doctors', __name__)
 # API: Lấy thông tin chi tiết của bác sĩ (cho tab profile)
 @doctors_bp.route('/<int:doctor_id>', methods=['GET'])
 def get_doctor_details(doctor_id):
-# ... (Phần code này không đổi) ...
     try:
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
@@ -25,7 +24,6 @@ def get_doctor_details(doctor_id):
 # API: Bác sĩ cập nhật thông tin cá nhân
 @doctors_bp.route('/update/<int:doctor_id>', methods=['PUT'])
 def update_doctor(doctor_id):
-# ... (Phần code này không đổi) ...
     data = request.get_json()
     try:
         conn = get_db_connection()
@@ -59,7 +57,6 @@ def get_patients(doctor_id):
     try:
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
-        # SỬA LỖI: Thêm 'email' vào câu lệnh SELECT
         cursor.execute("SELECT patient_id, full_name, email, phone_number FROM Patients WHERE doctor_id = %s", (doctor_id,))
         patients = cursor.fetchall()
         cursor.close()
@@ -69,10 +66,9 @@ def get_patients(doctor_id):
         print("Error fetching patients:", str(e))
         return jsonify({"message": "Lỗi khi lấy danh sách bệnh nhân!"}), 500
 
-# API: Lấy cảnh báo bệnh nhân (không đổi)
+# API: Lấy cảnh báo bệnh nhân
 @doctors_bp.route('/<int:doctor_id>/alerts', methods=['GET'])
 def get_alerts(doctor_id):
-# ... (Phần code này không đổi) ...
     try:
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
@@ -92,14 +88,13 @@ def get_alerts(doctor_id):
         print("Error fetching alerts:", str(e))
         return jsonify({"message": "Lỗi khi lấy cảnh báo!"}), 500
 
-# (Hàm latest_health và health_history không thay đổi)
-# API: Lấy dữ liệu sức khỏe mới nhất của bệnh nhân
+# API: Lấy dữ liệu sức khỏe mới nhất của bệnh nhân (ĐÃ CẬP NHẬT - GIỮ LẠI PHIÊN BẢN MỚI NHẤT)
 @doctors_bp.route('/health/latest/<int:patient_id>', methods=['GET'])
 def latest_health(patient_id):
-# ... (Phần code này không đổi) ...
     try:
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
+        # Đã thêm ir_value vào câu lệnh SELECT
         cursor.execute("""
             SELECT bpm, avg_bpm, ir_value, accel_x, accel_y, accel_z, a_total, timestamp
             FROM HealthData
@@ -120,8 +115,7 @@ def latest_health(patient_id):
 # API: Lấy lịch sử dữ liệu sức khỏe theo range
 @doctors_bp.route('/health/history/<int:patient_id>', methods=['GET'])
 def health_history(patient_id):
-# ... (Phần code này không đổi) ...
-    range_type = request.args.get('range', 'day')  # day, week, month
+    range_type = request.args.get('range', 'day')
     try:
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
@@ -150,23 +144,20 @@ def health_history(patient_id):
         print("Error fetching health history:", str(e))
         return jsonify({"message": "Lỗi khi lấy lịch sử sức khỏe!"}), 500
 
-# MỚI: API cho bác sĩ cập nhật trạng thái cảnh báo
+# API: Cập nhật trạng thái cảnh báo
 @doctors_bp.route('/alerts/<int:alert_id>', methods=['PUT'])
 def update_alert_status(alert_id):
-# ... (Phần code này không đổi) ...
     data = request.get_json()
-    new_status = data.get('status', 'viewed') # 'viewed' hoặc 'handled'
-    doctor_id = data.get('doctor_id') # Lấy doctor_id từ request
+    new_status = data.get('status', 'viewed')
+    doctor_id = data.get('doctor_id')
 
     if new_status not in ['viewed', 'handled']:
-# ... (Phần code này không đổi) ...
         return jsonify({"message": "Trạng thái không hợp lệ"}), 400
         
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute(
-# ... (Phần code này không đổi) ...
             """
             UPDATE Alerts
             SET status = %s, viewed_at = NOW(), viewed_by_doctor_id = %s

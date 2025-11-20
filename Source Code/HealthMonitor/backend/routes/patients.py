@@ -1,6 +1,7 @@
 # routes/patients.py
 from flask import Blueprint, jsonify, request
 from db import get_db_connection
+# Không cần datetime ở đây nữa vì đã tính trong SQL
 
 patients_bp = Blueprint('patients', __name__)
 
@@ -10,11 +11,13 @@ def get_patient(patient_id):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
-    # SỬA: JOIN với bảng Doctors và Devices để lấy đầy đủ thông tin
-    # Thêm dev.is_measuring và dev.last_seen vào danh sách cột
+    # SỬA ĐỔI QUAN TRỌNG:
+    # Thêm hàm TIMESTAMPDIFF(SECOND, dev.last_seen, NOW()) để MySQL tự tính số giây trôi qua
+    # Điều này giúp tránh lỗi lệch múi giờ giữa Python và MySQL
     cursor.execute("""
         SELECT p.*, d.full_name as doctor_name, 
-               dev.device_serial, dev.status as device_status, dev.is_measuring, dev.last_seen
+               dev.device_serial, dev.status as device_status, dev.is_measuring, dev.last_seen,
+               TIMESTAMPDIFF(SECOND, dev.last_seen, NOW()) as seconds_since_seen
         FROM `Patients` p
         LEFT JOIN `Doctors` d ON p.doctor_id = d.doctor_id
         LEFT JOIN `Devices` dev ON p.device_id = dev.device_id
@@ -28,6 +31,17 @@ def get_patient(patient_id):
 
     if not patient:
         return jsonify({"message": "Không tìm thấy bệnh nhân!"}), 404
+
+    # === LOGIC KIỂM TRA ONLINE/OFFLINE MỚI ===
+    if patient.get('device_serial'):
+        seconds = patient.get('seconds_since_seen')
+        
+        # Nếu không có last_seen hoặc đã quá 15 giây không thấy tin hiệu -> Offline
+        # (Giảm xuống 15s để bạn test nhanh hơn)
+        if seconds is None or seconds > 15: 
+            patient['device_status'] = 'offline'
+        else:
+            patient['device_status'] = 'online'
 
     return jsonify(patient)
 
@@ -57,16 +71,15 @@ def update_patient(patient_id):
 
     return jsonify({"message": "Cập nhật thông tin thành công!"})
 
-# MỚI: API Bật/Tắt chế độ đo
+# API Bật/Tắt chế độ đo (Giữ nguyên)
 @patients_bp.route('/<int:patient_id>/device/control', methods=['POST'])
 def control_device(patient_id):
     data = request.get_json()
-    action = data.get('action') # 'start' hoặc 'stop'
+    action = data.get('action') 
     
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # 1. Lấy device_id của bệnh nhân
     cursor.execute("SELECT device_id FROM Patients WHERE patient_id = %s", (patient_id,))
     result = cursor.fetchone()
     
@@ -76,8 +89,6 @@ def control_device(patient_id):
         
     device_id = result[0]
     
-    # 2. Cập nhật trạng thái is_measuring
-    # 1: Bắt đầu đo, 0: Dừng đo
     new_status = 1 if action == 'start' else 0
     
     try:

@@ -1,6 +1,5 @@
 // assets/js/doctor.js
 
-// === Helpers ===
 function formatDate(dateString) {
     if (!dateString) return '';
     try {
@@ -11,6 +10,33 @@ function formatDate(dateString) {
         return `${day}/${month}/${year}`;
     } catch (e) { return dateString; }
 }
+
+function formatDateTime(dateString) {
+    if (!dateString) return '';
+    try {
+        const date = new Date(dateString);
+        // Sử dụng múi giờ Việt Nam (UTC+7)
+        const day = String(date.getUTCDate()).padStart(2, '0');
+        const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+        const year = date.getUTCFullYear();
+        const hours = String(date.getUTCHours()).padStart(2, '0');
+        const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+        const seconds = String(date.getUTCSeconds()).padStart(2, '0');
+        return `${hours}:${minutes}:${seconds} ${day}/${month}/${year}`;
+    } catch (e) { return dateString; }
+}
+
+function formatTime(dateString) {
+    if (!dateString) return '';
+    try {
+        const date = new Date(dateString);
+        const hours = String(date.getUTCHours()).padStart(2, '0');
+        const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+        const seconds = String(date.getUTCSeconds()).padStart(2, '0');
+        return `${hours}:${minutes}:${seconds}`;
+    } catch (e) { return dateString; }
+}
+
 function formatDateForInput(dateString) {
     if (!dateString) return '';
      try {
@@ -21,6 +47,7 @@ function formatDateForInput(dateString) {
         return `${year}-${month}-${day}`;
      } catch (e) { return ''; }
 }
+
 function getStatusClass(status) {
     if (!status) return 'status-unknown';
     const s = String(status).toLowerCase();
@@ -31,6 +58,7 @@ function getStatusClass(status) {
     if (s.includes('bình thường')) return 'status-normal';
     return 'status-unknown';
 }
+
 function formatValue(val) {
     if (val === 0 || val === "0") return "0";
     if (val) return val;
@@ -38,12 +66,18 @@ function formatValue(val) {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
-    console.log("Doctor Dashboard Loaded");
-    const user = JSON.parse(localStorage.getItem("user"));
-    if (!user || user.role !== 'doctor') { window.location.href="/login.html"; return; }
+    const userStr = localStorage.getItem("user");
+    if (!userStr) { window.location.href = "/login.html"; return; }
+    
+    const user = JSON.parse(userStr);
+    if (user.role !== 'doctor') {
+        alert("Bạn không có quyền truy cập trang này!");
+        window.location.href = "/login.html"; 
+        return; 
+    }
+    
     const doctorId = user.doctor_id;
 
-    // --- INITIALIZE MODALS ---
     let updateDoctorInfoModal = null;
     let changePasswordModal = null;
     try {
@@ -53,10 +87,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         if(passEl) changePasswordModal = new bootstrap.Modal(passEl);
     } catch(e) { console.error(e); }
 
-    // --- PROFILE ---
     if(document.getElementById("userProfileName")) document.getElementById("userProfileName").innerText = user.full_name;
 
-    // --- TAB SWITCHING ---
     document.querySelectorAll("#sidebar .nav-link").forEach(link => {
         link.addEventListener("click", e => {
             e.preventDefault();
@@ -74,17 +106,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     });
 
-    // --- LOGOUT ---
     document.getElementById("logoutBtn").addEventListener("click", ()=> {
         localStorage.removeItem("user");
         window.location.href="/login.html";
     });
 
-    // ==========================================
-    // LOGIC TAB BỆNH NHÂN & CHỌN BỆNH NHÂN
-    // ==========================================
-    
-    let monitoringInterval = null; // Biến giữ interval để xóa khi đổi bệnh nhân
+    let monitoringInterval = null;
     let bpmChart = null;
     let latestTimestamp = null;
 
@@ -94,7 +121,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             if(!res.ok) return;
             const data = await res.json();
             
-            // 1. Fill Table
             const tbody = document.getElementById("patients-table-body");
             if(tbody) {
                 tbody.innerHTML = "";
@@ -111,28 +137,27 @@ document.addEventListener("DOMContentLoaded", async () => {
                         tbody.appendChild(tr);
                     });
                     
-                    // Nút "Xem sức khỏe" chuyển sang tab Health
                     document.querySelectorAll(".view-health-btn").forEach(btn => {
                         btn.addEventListener("click", () => {
                             const pid = btn.dataset.id;
-                            // Chuyển tab
                             document.querySelector('[data-tab="health"]').click();
-                            // Chọn bệnh nhân
-                            const select = document.getElementById("select-patient");
-                            select.value = pid;
-                            select.dispatchEvent(new Event('change')); // Kích hoạt sự kiện change
+                            setTimeout(() => {
+                                const select = document.getElementById("select-patient");
+                                if(select) {
+                                    select.value = pid;
+                                    select.dispatchEvent(new Event('change'));
+                                }
+                            }, 100);
                         });
                     });
                 }
             }
 
-            // 2. Fill Select Dropdown (Tab Health)
             const select = document.getElementById("select-patient");
             if(select) {
-                // Giữ lại option đầu tiên
-                const defaultOpt = select.firstElementChild;
-                select.innerHTML = "";
-                select.appendChild(defaultOpt);
+                const defaultOpt = select.firstElementChild; 
+                select.innerHTML = ""; 
+                if(defaultOpt) select.appendChild(defaultOpt);
                 
                 data.forEach(p => {
                     const opt = document.createElement("option");
@@ -141,40 +166,36 @@ document.addEventListener("DOMContentLoaded", async () => {
                     select.appendChild(opt);
                 });
             }
-
         } catch(err){ console.error(err); }
     }
-    await loadPatients(); // Load ngay khi vào
+    
+    await loadPatients();
 
-    // --- SỰ KIỆN CHỌN BỆNH NHÂN ---
     const selectPatient = document.getElementById("select-patient");
     if(selectPatient) {
         selectPatient.addEventListener("change", (e) => {
             const patientId = e.target.value;
             
-            // Reset Interval cũ
             if(monitoringInterval) clearInterval(monitoringInterval);
             
             if(!patientId) {
-                // Ẩn dashboard
                 document.getElementById("health-dashboard").classList.add("d-none");
                 document.getElementById("no-patient-selected").classList.remove("d-none");
                 return;
             }
 
-            // Hiện dashboard
             document.getElementById("health-dashboard").classList.remove("d-none");
             document.getElementById("no-patient-selected").classList.add("d-none");
             
-            // Reset Chart Timestamp để vẽ mới
             latestTimestamp = null;
             
-            // Load dữ liệu ngay
             loadPatientStatus(patientId);
             loadPatientRealtimeData(patientId);
-            initChart(patientId, document.getElementById("chart-range").value);
             
-            // Set Interval mới (3s/lần)
+            const rangeEl = document.getElementById("chart-range");
+            const range = rangeEl ? rangeEl.value : "day";
+            initChart(patientId, range);
+            
             monitoringInterval = setInterval(() => {
                 loadPatientStatus(patientId);
                 loadPatientRealtimeData(patientId);
@@ -182,55 +203,62 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 
-    // Load Status & Device Info
     async function loadPatientStatus(pid) {
         try {
-            const res = await fetch(`/api/patients/${pid}`);
+            const res = await fetch(`/api/patients/${pid}?t=${new Date().getTime()}`);
             if(!res.ok) return;
             const data = await res.json();
             
-            // Status AI
             const statusSpan = document.getElementById("patient_health_status");
-            const statusText = data.current_health_status || 'Đang chờ dữ liệu...';
-            statusSpan.innerText = statusText;
-            statusSpan.className = "fs-3 fw-bold " + getStatusClass(statusText);
+            if(statusSpan) {
+                const statusText = data.current_health_status || 'Đang chờ dữ liệu...';
+                statusSpan.innerText = statusText;
+                statusSpan.className = "fs-3 fw-bold " + getStatusClass(statusText);
+            }
 
-            // Device Info
-            document.getElementById("patient_device_serial").innerText = data.device_serial || "Chưa gán";
-            document.getElementById("patient_device_status").innerText = data.device_status || "Offline";
+            if(document.getElementById("patient_device_serial")) 
+                document.getElementById("patient_device_serial").innerText = data.device_serial || "Chưa gán";
+            
+            if(document.getElementById("patient_device_status")) {
+                const status = (data.device_status || 'Offline').toLowerCase();
+                const el = document.getElementById("patient_device_status");
+                el.innerText = status.charAt(0).toUpperCase() + status.slice(1);
+                el.className = status === 'online' ? "fw-bold text-success" : "fw-bold text-secondary";
+            }
             
             const measureSpan = document.getElementById("patient_measuring_status");
-            if (data.is_measuring === 1) {
-                measureSpan.innerText = "ĐANG ĐO...";
-                measureSpan.className = "fw-bold device-active blink";
-            } else {
-                measureSpan.innerText = "ĐÃ DỪNG";
-                measureSpan.className = "fw-bold device-inactive";
+            if(measureSpan) {
+                if (data.is_measuring === 1) {
+                    measureSpan.innerText = "ĐANG ĐO...";
+                    measureSpan.className = "fw-bold device-active blink";
+                } else {
+                    measureSpan.innerText = "ĐÃ DỪNG";
+                    measureSpan.className = "fw-bold device-inactive";
+                }
             }
         } catch(err) { console.error(err); }
     }
 
-    // Load Stats Cards & Update Chart
     async function loadPatientRealtimeData(pid) {
         try {
-            const res = await fetch(`/api/health/latest/${pid}`);
+            const res = await fetch(`/api/health/latest/${pid}?t=${new Date().getTime()}`);
             if(!res.ok) return;
             const data = await res.json();
 
-            // Update Cards
-            ['bpm_val','ir_val','accel_x_val','accel_y_val','accel_z_val','a_total_val'].forEach(id => {
-                const key = id.replace('_val', '');
-                const el = document.getElementById(id);
-                if(el) el.innerText = formatValue(data[key]);
-            });
+            // --- SỬA LỖI IR ---
+            // Đảm bảo ID trong HTML là ir_val và dữ liệu từ API là ir_value
+            if(document.getElementById('bpm_val')) document.getElementById('bpm_val').innerText = formatValue(data.bpm);
+            if(document.getElementById('ir_val')) document.getElementById('ir_val').innerText = formatValue(data.ir_value);
+            if(document.getElementById('accel_x_val')) document.getElementById('accel_x_val').innerText = formatValue(data.accel_x);
+            if(document.getElementById('accel_y_val')) document.getElementById('accel_y_val').innerText = formatValue(data.accel_y);
+            if(document.getElementById('accel_z_val')) document.getElementById('accel_z_val').innerText = formatValue(data.accel_z);
+            if(document.getElementById('a_total_val')) document.getElementById('a_total_val').innerText = formatValue(data.a_total);
 
-            // Update Chart (Running effect)
             if (bpmChart && data.timestamp) {
                 const newTime = new Date(data.timestamp).getTime();
-                // Chỉ thêm nếu là dữ liệu mới
                 if (!latestTimestamp || newTime > latestTimestamp) {
                     latestTimestamp = newTime;
-                    const label = new Date(data.timestamp).toLocaleTimeString();
+                    const label = formatTime(data.timestamp);
                     const bpm = (data.bpm === null || data.bpm === undefined) ? 0 : data.bpm;
                     
                     bpmChart.data.labels.push(label);
@@ -243,24 +271,23 @@ document.addEventListener("DOMContentLoaded", async () => {
                     bpmChart.update('none');
                 }
             }
-
         } catch(err) { console.error(err); }
     }
 
-    // Init Chart
     async function initChart(pid, range="day") {
         try {
-            const res = await fetch(`/api/health/history/${pid}?range=${range}`);
+            const res = await fetch(`/api/health/history/${pid}?range=${range}&t=${new Date().getTime()}`);
             if(!res.ok) return;
             let data = await res.json();
             
             const ctxEl = document.getElementById("bpmChart");
             if(!ctxEl) return;
+            if (typeof Chart === 'undefined') return;
 
             if(range === 'day' && data.length > 20) data = data.slice(data.length - 20);
             if(data.length > 0) latestTimestamp = new Date(data[data.length-1].timestamp).getTime();
 
-            const labels = data.map(d=> new Date(d.timestamp).toLocaleTimeString());
+            const labels = data.map(d=> formatTime(d.timestamp));
             const bpmValues = data.map(d => (d.bpm === null || d.bpm === undefined) ? 0 : d.bpm);
 
             if(bpmChart) bpmChart.destroy();
@@ -299,7 +326,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         } catch(err) { console.error(err); }
     }
     
-    // Range Select Listener
     const rangeSelect = document.getElementById("chart-range");
     if(rangeSelect) {
         rangeSelect.addEventListener("change", (e) => {
@@ -308,10 +334,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 
-    // ==========================================
-    // CÁC TAB KHÁC (ALERTS, PROFILE...)
-    // ==========================================
-
     async function loadAlerts(){
         try {
             const res = await fetch(`/api/doctors/${doctorId}/alerts`);
@@ -319,7 +341,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             const data = await res.json();
             const container = document.getElementById("alerts-table");
             if(!container) return;
-            
             container.innerHTML = "";
             if (data.length === 0) { container.innerHTML = "<p class='text-center py-3 text-muted'>Không có cảnh báo nào.</p>"; return; }
             
@@ -327,31 +348,16 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const div = document.createElement("div");
                 let statusClass = a.status === 'new' ? 'list-group-item-danger' : 'list-group-item-light';
                 div.className = "list-group-item " + statusClass;
-                div.innerHTML = `
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <strong>${a.alert_type}</strong> <span class="badge bg-secondary ms-2">${a.full_name}</span>
-                            <p class="mb-0 mt-1 text-muted small">${a.message}</p>
-                        </div>
-                        <div class="text-end">
-                             <small class="d-block mb-2">${new Date(a.timestamp).toLocaleString()}</small>
-                             ${a.status === 'new' ? `<button class="btn btn-sm btn-warning mark-viewed" data-id="${a.alert_id}">Đã xem</button>` : ''}
-                        </div>
-                    </div>`;
+                div.innerHTML = `<div class="d-flex justify-content-between align-items-center"><div><strong>${a.alert_type}</strong> <span class="badge bg-secondary ms-2">${a.full_name}</span><p class="mb-0 mt-1 text-muted small">${a.message}</p></div><div class="text-end"><small class="d-block mb-2">${formatDateTime(a.timestamp)}</small>${a.status === 'new' ? `<button class="btn btn-sm btn-warning mark-viewed" data-id="${a.alert_id}">Đã xem</button>` : ''}</div></div>`;
                 container.appendChild(div);
             });
 
-            // Action buttons logic
             document.querySelectorAll('.mark-viewed').forEach(btn => {
                 btn.addEventListener('click', async () => {
-                    await fetch(`/api/doctors/alerts/${btn.dataset.id}`, {
-                        method: 'PUT', headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({ status: 'viewed', doctor_id: doctorId })
-                    });
+                    await fetch(`/api/doctors/alerts/${btn.dataset.id}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ status: 'viewed', doctor_id: doctorId }) });
                     loadAlerts();
                 });
             });
-            
         } catch(err){ console.error(err); }
     }
 
@@ -362,25 +368,15 @@ document.addEventListener("DOMContentLoaded", async () => {
             const data = await res.json();
             ['doc_full_name','doc_email','doc_phone_number','doc_address','doc_date_of_birth','doc_title','doc_specialty'].forEach(id => {
                 const key = id.replace('doc_', '');
-                const key2 = key === 'date_of_birth' ? key : (key === 'full_name' ? key : (key === 'email' ? key : (key === 'phone_number' ? 'phone_number' : (key === 'address' ? 'address' : (key==='title'?'title':'specialty')))));
-                // Simple map based on api keys
-                const apiKeys = {
-                    'doc_full_name': 'full_name', 'doc_email': 'email', 'doc_phone_number': 'phone_number',
-                    'doc_address': 'address', 'doc_date_of_birth': 'date_of_birth', 'doc_title': 'title', 'doc_specialty': 'specialty'
-                };
+                const apiKeys = {'doc_full_name': 'full_name', 'doc_email': 'email', 'doc_phone_number': 'phone_number', 'doc_address': 'address', 'doc_date_of_birth': 'date_of_birth', 'doc_title': 'title', 'doc_specialty': 'specialty'};
                 if(document.getElementById(id)) document.getElementById(id).innerText = data[apiKeys[id]] || '';
             });
-            // DOB format
             if(document.getElementById("doc_date_of_birth")) document.getElementById("doc_date_of_birth").innerText = formatDate(data.date_of_birth);
         } catch(err) { console.error(err); }
     }
 
-    // --- MODAL EVENTS ---
     const docUpdateBtn = document.getElementById("doc-update-info-btn");
-    if(docUpdateBtn) docUpdateBtn.addEventListener("click", ()=> {
-        if(updateDoctorInfoModal) updateDoctorInfoModal.show();
-        // Populate fields... 
-    });
+    if(docUpdateBtn) docUpdateBtn.addEventListener("click", ()=> { if(updateDoctorInfoModal) updateDoctorInfoModal.show(); });
     
     const saveDocInfoBtn = document.getElementById("saveDoctorInfoBtn");
     if(saveDocInfoBtn) saveDocInfoBtn.addEventListener("click", async () => {
@@ -400,9 +396,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     const changePassBtn = document.getElementById("doc-change-pass-btn");
-    if(changePassBtn) changePassBtn.addEventListener("click", () => {
-        if(changePasswordModal) changePasswordModal.show();
-    });
+    if(changePassBtn) changePassBtn.addEventListener("click", () => { if(changePasswordModal) changePasswordModal.show(); });
     
     const saveNewPassBtn = document.getElementById("saveNewPassBtn");
     if(saveNewPassBtn) saveNewPassBtn.addEventListener("click", async () => {

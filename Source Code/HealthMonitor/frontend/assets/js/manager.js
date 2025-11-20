@@ -1,11 +1,28 @@
 // assets/js/manager.js
 
-// Helper formatDate
 function formatDate(dateString) {
     if (!dateString) return '';
     try {
         const date = new Date(dateString);
-        return date.toLocaleDateString('vi-VN');
+        // Dùng UTC
+        const day = String(date.getUTCDate()).padStart(2, '0');
+        const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+        const year = date.getUTCFullYear();
+        return `${day}/${month}/${year}`;
+    } catch (e) { return dateString; }
+}
+
+function formatDateTime(dateString) {
+    if (!dateString) return '';
+    try {
+        const date = new Date(dateString);
+        const day = String(date.getUTCDate()).padStart(2, '0');
+        const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+        const year = date.getUTCFullYear();
+        const hours = String(date.getUTCHours()).padStart(2, '0');
+        const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+        const seconds = String(date.getUTCSeconds()).padStart(2, '0');
+        return `${hours}:${minutes}:${seconds} ${day}/${month}/${year}`;
     } catch (e) { return dateString; }
 }
 
@@ -21,15 +38,12 @@ function formatDateForInput(dateString) {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
-    console.log("Manager Dashboard Loaded");
     const user = JSON.parse(localStorage.getItem("user"));
     if(!user || user.role !== "manager"){ window.location.href="/login.html"; return; }
     const managerId = user.manager_id;
     
-    // Profile Info
     if(document.getElementById("userProfileName")) document.getElementById("userProfileName").innerText = user.full_name;
 
-    // Modals
     let doctorModal = null;
     let patientModal = null;
     try {
@@ -41,7 +55,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     let doctorsCache = []; 
 
-    // Tab Switching
     document.querySelectorAll("#sidebar .nav-link").forEach(link => {
         link.addEventListener("click", e => {
             e.preventDefault();
@@ -59,16 +72,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     });
 
-    // Logout
     document.getElementById("logoutBtn").addEventListener("click", ()=> {
         localStorage.removeItem("user");
         window.location.href="/login.html";
     });
     
-    // ==========================
-    // QUẢN LÝ BÁC SĨ
-    // ==========================
-
     async function loadDoctors(){
         try{
             const res = await fetch(`/api/managers/${managerId}/doctors`);
@@ -98,7 +106,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                 tbody.appendChild(tr);
             });
             
-            // Bind Events
             document.querySelectorAll('.edit-btn').forEach(btn => {
                 btn.addEventListener('click', () => openEditDoctorModal(btn.dataset.id));
             });
@@ -109,7 +116,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         } catch(err){ console.error(err); }
     }
 
-    // Add Doctor
     const addDocBtn = document.getElementById('addDoctorBtn');
     if(addDocBtn) addDocBtn.addEventListener('click', () => {
         document.getElementById('doctorModalTitle').innerText = "Thêm bác sĩ";
@@ -122,7 +128,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         if(doctorModal) doctorModal.show();
     });
     
-    // Edit Doctor
     function openEditDoctorModal(id) {
         const doctor = doctorsCache.find(d => d.doctor_id == id);
         if (!doctor) return;
@@ -147,7 +152,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         if(doctorModal) doctorModal.show();
     }
     
-    // Save Doctor (Add/Edit)
     const saveDocBtn = document.getElementById('saveDoctorBtn');
     if(saveDocBtn) saveDocBtn.addEventListener('click', async () => {
         const doctorId = document.getElementById('modalDoctorId').value;
@@ -192,7 +196,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         } catch (err) { alert("Lỗi máy chủ!"); }
     });
 
-    // Delete Doctor
     async function deleteDoctor(id) {
         if (!confirm("Bạn có chắc chắn muốn xóa bác sĩ này? Bệnh nhân của họ sẽ bị gỡ gán.")) return;
         try {
@@ -201,11 +204,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             else alert("Xóa thất bại!");
         } catch (err) { alert("Lỗi khi xóa!"); }
     }
-
-
-    // ==========================
-    // QUẢN LÝ BỆNH NHÂN
-    // ==========================
 
     async function loadPatients(){
         try{
@@ -271,11 +269,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         } catch (err) { alert("Lỗi máy chủ!"); }
     });
 
-
-    // ==========================
-    // GIÁM SÁT THIẾT BỊ
-    // ==========================
-
     async function loadDevices(){
         try{
             const res = await fetch(`/api/managers/${managerId}/devices`);
@@ -291,19 +284,16 @@ document.addEventListener("DOMContentLoaded", async () => {
             data.forEach((d,i)=>{
                 const tr = document.createElement("tr");
                 const statusBadge = d.status === 'online' ? '<span class="badge bg-success">Online</span>' : '<span class="badge bg-secondary">Offline</span>';
+                // Dùng formatDateTime (UTC)
                 tr.innerHTML = `
                     <td class="ps-4 fw-bold">${i+1}</td>
                     <td class="font-monospace">${d.device_serial}</td>
                     <td>${statusBadge}</td>
-                    <td>${new Date(d.last_seen).toLocaleString()}</td>`;
+                    <td>${formatDateTime(d.last_seen)}</td>`;
                 tbody.appendChild(tr);
             });
         } catch(err){ console.error(err); }
     }
-
-    // ==========================
-    // THỐNG KÊ
-    // ==========================
 
     let alertsChart;
     async function loadReports(){
@@ -321,9 +311,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             
             if(alertsChart) alertsChart.destroy();
             
-            // Check if empty chart
             if (!stats.alert_labels || stats.alert_labels.length === 0) {
-                // Vẽ chart rỗng hoặc hiện thông báo
                 return;
             }
 
@@ -348,6 +336,5 @@ document.addEventListener("DOMContentLoaded", async () => {
         } catch(err){ console.error(err); }
     }
     
-    // Initial Load
     loadDoctors();
 });
