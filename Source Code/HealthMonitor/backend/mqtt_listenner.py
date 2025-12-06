@@ -8,9 +8,8 @@ import paho.mqtt.client as mqtt
 from model_loader import predict_status
 from datetime import datetime
 
-# =================================================================
 # CẤU HÌNH MQTT
-# =================================================================
+
 MQTT_BROKER = "8c9b9eafe2434729af707f153e31a91f.s1.eu.hivemq.cloud"
 MQTT_USER = "nhom5"
 MQTT_PASSWORD = "Abc123456"
@@ -18,9 +17,9 @@ MQTT_PORT = 8883
 MQTT_TOPIC = "health/data"
 MQTT_CONTROL_TOPIC = "health/control" 
 
-# =================================================================
+
 # CẤU HÌNH DATABASE
-# =================================================================
+
 DB_CONFIG = {
     "host": "localhost",
     "user": "root",
@@ -29,9 +28,8 @@ DB_CONFIG = {
     "cursorclass": pymysql.cursors.DictCursor
 }
 
-# =================================================================
 # HÀM XỬ LÝ
-# =================================================================
+
 
 def on_connect(client, userdata, flags, rc, properties=None):
     if rc == 0:
@@ -71,9 +69,7 @@ def on_message(client, userdata, msg):
                 WHERE device_id=%s
             """, (device_id,))
             
-            # ===========================================================
-            # SỬA LỖI: NẾU ĐANG DỪNG ĐO -> GỬI LỆNH TẮT ĐÈN RỒI MỚI BỎ QUA
-            # ===========================================================
+           
             if device_row['is_measuring'] == 0:
                 # Gửi lệnh OFF để đảm bảo đèn tắt
                 control_payload = json.dumps({
@@ -88,7 +84,7 @@ def on_message(client, userdata, msg):
                 conn.close()
                 return
             
-            # ... (Các phần xử lý bên dưới giữ nguyên) ...
+            
             
             # Tìm patient_id
             cur.execute("SELECT patient_id FROM Patients WHERE device_id=%s", (device_id,))
@@ -165,9 +161,8 @@ def on_message(client, userdata, msg):
     except Exception as e:
         print(f"Loi he thong: {e}")
 
-# =================================================================
+
 # CHẠY CHƯƠNG TRÌNH
-# =================================================================
 client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
 client.on_connect = on_connect
 client.on_message = on_message
