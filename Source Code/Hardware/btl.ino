@@ -5,136 +5,185 @@
 #include <Adafruit_ADXL345_U.h>
 #include "MAX30105.h"
 #include "heartRate.h"
+#include <ArduinoJson.h> 
+#include <WiFiManager.h>
 
+// ======================== 1. MQTT CONFIG ========================
+const char* MQTT_SERVER = "d2c7e1d6b7ff4636af82a88c157ff0a5.s1.eu.hivemq.cloud";
+const int   MQTT_PORT   = 8883;
+const char* MQTT_USER   = "nhom5";
+const char* MQTT_PASSWORD = "Abc123456";
 
-const char* ssid = "ten wifi";
-const char* password = "matkhau";
+const char* DEVICE_SERIAL = "ESP32-001";
+const char* TOPIC_DATA = "health/data";
+const char* TOPIC_CONTROL = "health/control";
 
-const char* mqtt_server = "d2c7e1d6b7ff4636af82a88c157ff0a5.s1.eu.hivemq.cloud"; // link mqtt
-const int mqtt_port = 8883;
-const char* mqtt_user = "nhom5"; // user mqtt
-const char* mqtt_pass = "Abc123456"; // matkhau mqtt
-
-const char* device_serial = "ESP32-001";
+#define LED_PIN 2 
 
 WiFiClientSecure espClient;
 PubSubClient client(espClient);
+
+// ======================== 2. KHỞI TẠO CẢM BIẾN ========================
 Adafruit_ADXL345_Unified accel = Adafruit_ADXL345_Unified(12345);
 MAX30105 particleSensor;
 
-void setup_wifi() {
-  Serial.print("Kết nối WiFi...");
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println("\nWiFi kết nối thành công");
-  Serial.println(WiFi.localIP());
-}
+const byte RATE_SIZE = 10;
+byte rateSpot = 0;
+float rates[RATE_SIZE];
+long lastBeat = 0;
+float bpm = 0;
+float avgBpm = 0;
 
-void reconnect() {
-  while (!client.connected()) {
-    Serial.print("Kết nối MQTT...");
-    if (client.connect("ESP32_Client", mqtt_user, mqtt_pass)) {
-      Serial.println("MQTT kết nối Thành công!");
-      client.subscribe("health/alert");
-    } else {
-      Serial.print("MQTT kết nối thất bại, mã lỗi: ");
-      Serial.println(client.state());
-      delay(5000);
+unsigned long lastPrint = 0;
+const unsigned long PRINT_INTERVAL = 1000;
+
+// ======================== 3. CALLBACK MQTT ========================
+void callback(char* topic, byte* payload, unsigned int length) {
+  String messageTemp;
+
+  for (int i = 0; i < length; i++) {
+    messageTemp += (char)payload[i];
+  }
+
+  if (String(topic) == TOPIC_CONTROL) {
+    DynamicJsonDocument doc(1024);
+    if (deserializeJson(doc, messageTemp)) return;
+
+    const char* target_serial = doc["device_serial"];
+    const char* command = doc["command"];
+
+    if (strcmp(target_serial, DEVICE_SERIAL) == 0) {
+      if (strcmp(command, "LED_ON") == 0) digitalWrite(LED_PIN, HIGH);
+      if (strcmp(command, "LED_OFF") == 0) digitalWrite(LED_PIN, LOW);
     }
   }
 }
 
-void callback(char* topic, byte* payload, unsigned int length) {
-  Serial.print("Nhận được tin nhắn từ topic: ");
-  Serial.println(topic);
+// ======================== 4. MQTT RECONNECT ========================
+void mqttReconnect() {
+  while (!client.connected()) {
+    Serial.print("Ket noi MQTT...");
 
-  Serial.print("Nội dung: ");
-  String message = "";
-  for (int i = 0; i < length; i++) {
-    Serial.print((char)payload[i]);
-    char c = (char)payload[i];
-    message += c;
-  }
-  if (message == "ON") {
-    Serial.println("Lệnh: Bật đèn LED!");
-    digitalWrite(2, HIGH); 
-  } else if (message == "OFF") {
-    Serial.println("Lệnh: Tắt đèn LED!");
-    digitalWrite(2, LOW);
+    String clientId = "ESP32-" + String(random(0xffff), HEX);
+    
+    if (client.connect(clientId.c_str(), MQTT_USER, MQTT_PASSWORD)) {
+      Serial.println("Thanh cong!");
+      client.subscribe(TOPIC_CONTROL);
+    } else {
+      Serial.print("That bai, rc=");
+      Serial.println(client.state());
+      delay(3000);
+    }
   }
 }
 
+// ======================== 5. MAIN SETUP ========================
 void setup() {
   Serial.begin(115200);
-  Wire.begin(21,22);
-  setup_wifi();
-  pinMode(2, OUTPUT); 
-  espClient.setInsecure();
-  client.setServer(mqtt_server, mqtt_port);
-  client.setCallback(callback);
-  
-  // ADXL345
-  if (!accel.begin()) {
-    Serial.println("Không tìm thấy ADXL345!");
-    while (1);
+
+  pinMode(LED_PIN, OUTPUT);
+  digitalWrite(LED_PIN, LOW);
+  Wire.begin(21, 22);
+
+  // ====== KHỞI ĐỘNG WIFI BẰNG WIFIMANAGER ======
+  WiFiManager wm;
+
+  // Xóa cấu hình WiFi nếu cần reset:
+  wm.resetSettings();
+
+  bool res = wm.autoConnect("ESP32_Setup", "12345678");
+
+
+  if (!res) {
+    Serial.println("Ket noi WiFi that bai! Reset...");
+    delay(3000);
+    ESP.restart();
+  } else {
+    Serial.println("WiFi da ket noi!");
+    Serial.print("SSID hien tai: ");
+    Serial.println(WiFi.SSID());
+    Serial.print("IP dia chi: ");
+    Serial.println(WiFi.localIP());
   }
+
+  // ==============================================
+
+  espClient.setInsecure();
+
+  // ====== MQTT config ======
+  client.setServer(MQTT_SERVER, MQTT_PORT);
+  client.setCallback(callback);
+
+  // ====== Cảm biến ======
+  if (!accel.begin()) while (1);
   accel.setRange(ADXL345_RANGE_16_G);
 
-  // MAX30102
-  if (!particleSensor.begin(Wire, I2C_SPEED_STANDARD)) {
-    Serial.println("Không tìm thấy MAX30102!");
-    while (1);
-  }
+  if (!particleSensor.begin(Wire, I2C_SPEED_STANDARD)) while (1);
   particleSensor.setup();
+  particleSensor.setPulseAmplitudeRed(0x1F);
+  particleSensor.setPulseAmplitudeIR(0x1F);
+
+  Serial.println("HE THONG DA SAN SANG!");
 }
 
+// ======================== 6. MAIN LOOP ========================
 void loop() {
-  if (!client.connected()) reconnect();
+  if (!client.connected()) mqttReconnect();
   client.loop();
 
+  // ADXL345
   sensors_event_t event;
   accel.getEvent(&event);
-  float x = event.acceleration.x;
-  float y = event.acceleration.y;
-  float z = event.acceleration.z;
+  float ax = event.acceleration.x;
+  float ay = event.acceleration.y;
+  float az = event.acceleration.z;
 
-  byte rates[4] = { 0 };
-  byte rateSpot = 0;
-  long lastBeat = 0;
-  float bpm = 0, avgBpm = 0;
-
+  // MAX30102
   long irValue = particleSensor.getIR();
+
   if (irValue > 50000) {
     if (checkForBeat(irValue)) {
-      long delta = millis() - lastBeat;
-      lastBeat = millis();
-      bpm = 60 / (delta / 1000.0);
+      unsigned long now = millis();
+      unsigned long delta = now - lastBeat;
+      lastBeat = now;
 
-      if (bpm > 20 && bpm < 255) {
-        rates[rateSpot++] = (byte)bpm;
-        rateSpot %= 4;
+      float instantBPM = 60.0 / (delta / 1000.0);
+
+      if (instantBPM >= 40 && instantBPM <= 180) {
+        rates[rateSpot++] = instantBPM;
+        rateSpot %= RATE_SIZE;
+
         avgBpm = 0;
-        for (byte x = 0; x < 4; x++) avgBpm += rates[x];
-        avgBpm /= 4;
+        for (byte i = 0; i < RATE_SIZE; i++) avgBpm += rates[i];
+        avgBpm /= RATE_SIZE;
+
+        bpm = instantBPM;
       }
     }
   } else {
-    bpm = avgBpm = 0;
+    bpm = 0;
+    avgBpm = 0;
   }
 
-  char buffer[128];
+  // Gửi dữ liệu MQTT mỗi 1 giây
+  if (millis() - lastPrint >= PRINT_INTERVAL) {
+    lastPrint = millis();
 
-  snprintf(buffer, sizeof(buffer),
-           "{\"device_serial\":\"%s\",\"bpm\":%.2f,\"avg_bpm\":%.2f,"
-           "\"ir_value\":%.2f,\"accel_x\":%.2f,\"accel_y\":%.2f,\"accel_z\":%.2f}",
-           device_serial, bpm, avgBpm, irValue, x, y, z);
+    DynamicJsonDocument doc(1024);
+    doc["device_serial"] = DEVICE_SERIAL;
+    doc["bpm"] = bpm;
+    doc["avg_bpm"] = avgBpm;
+    doc["ir_value"] = irValue;
+    doc["accel_x"] = ax;
+    doc["accel_y"] = ay;
+    doc["accel_z"] = az;
 
-  client.publish("health/data", buffer);
+    char buffer[512];
+    serializeJson(doc, buffer);
 
-  Serial.println("Sent data to MQTT:");
-  Serial.println(buffer);
-  delay(5000);
+    client.publish(TOPIC_DATA, buffer);
+    Serial.println(buffer);
+  }
+
+  delay(10);
 }
