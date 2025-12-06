@@ -35,7 +35,7 @@ float bpm = 0;
 float avgBpm = 0;
 
 unsigned long lastPrint = 0;
-const unsigned long PRINT_INTERVAL = 1000;
+const unsigned long PRINT_INTERVAL = 5000;
 
 // ======================== 3. CALLBACK MQTT ========================
 void callback(char* topic, byte* payload, unsigned int length) {
@@ -89,7 +89,7 @@ void setup() {
   WiFiManager wm;
 
   // Xóa cấu hình WiFi nếu cần reset:
-  wm.resetSettings();
+  //wm.resetSettings();
 
   bool res = wm.autoConnect("ESP32_Setup", "12345678");
 
