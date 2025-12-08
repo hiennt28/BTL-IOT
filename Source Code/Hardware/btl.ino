@@ -10,7 +10,7 @@
 #include <HTTPUpdate.h>
 #include <HTTPClient.h>
 
-// ======================== 1. MQTT CONFIG ========================
+// ======================== MQTT CONFIG ========================
 const char* MQTT_SERVER = "d2c7e1d6b7ff4636af82a88c157ff0a5.s1.eu.hivemq.cloud";
 const int   MQTT_PORT   = 8883;
 const char* MQTT_USER   = "nhom5";
@@ -27,7 +27,7 @@ const char* TOPIC_OTA_STATUS = "health/ota_status";
 WiFiClientSecure espClient;
 PubSubClient client(espClient);
 
-// ======================== 2. KHỞI TẠO CẢM BIẾN ========================
+// ======================== KHỞI TẠO CẢM BIẾN ========================
 Adafruit_ADXL345_Unified accel = Adafruit_ADXL345_Unified(12345);
 MAX30105 particleSensor;
 
@@ -90,6 +90,10 @@ void performHTTPOTA(const char* firmwareURL) {
       }
       Serial.print(progress);
       Serial.println("%");
+      if(progress==100){
+        Serial.println("\n[HTTP OTA] THANH CONG!");
+        sendOTAStatus(100, "success", "Cap nhat thanh cong");
+      }
     }
   });
   
@@ -110,12 +114,19 @@ void performHTTPOTA(const char* firmwareURL) {
       Serial.println("[HTTP OTA] Khong co update");
       sendOTAStatus(0, "error", "Khong co update");
       break;
-      
+
     case HTTP_UPDATE_OK:
       Serial.println("\n[HTTP OTA] THANH CONG!");
       sendOTAStatus(100, "success", "Cap nhat thanh cong");
-      delay(1000);
+
+      unsigned long start = millis();
+      while (millis() - start < 1500) {
+          client.loop();   // bắt buộc
+          delay(10);
+      }
+
       Serial.println("[HTTP OTA] Dang khoi dong lai...");
+      Serial.flush();
       ESP.restart();
       break;
   }
@@ -123,7 +134,7 @@ void performHTTPOTA(const char* firmwareURL) {
   otaInProgress = false;
 }
 
-// ======================== 3. CALLBACK MQTT ========================
+// ======================== CALLBACK MQTT ========================
 void callback(char* topic, byte* payload, unsigned int length) {
   String messageTemp;
 
@@ -187,32 +198,55 @@ void callback(char* topic, byte* payload, unsigned int length) {
         digitalWrite(LED_PIN, LOW);
         Serial.println(">>TAT DEN<<");
       }
+      else if (strcmp(command, "RESET_WIFI") == 0) {
+        Serial.println("Reset WiFi");
+
+        WiFi.disconnect(true, true);
+        delay(200);
+
+        WiFiManager wm;
+        wm.resetSettings();
+
+        delay(1000);
+        ESP.restart();
+      }
     }
   }
 }
 
-// ======================== 4. MQTT RECONNECT ========================
-void mqttReconnect() {
-  while (!client.connected()) {
-    Serial.print("Ket noi MQTT...");
+// ======================== WIFI + MQTT RECONNECT ========================
+unsigned long lastMQTTReconnect = 0;
+unsigned long lastWiFiReconnect = 0;
 
-    String clientId = "ESP32-" + String(random(0xffff), HEX);
-    
-    if (client.connect(clientId.c_str(), MQTT_USER, MQTT_PASSWORD)) {
-      Serial.println("Thanh cong!");
-      client.subscribe(TOPIC_CONTROL);
-      client.subscribe(TOPIC_OTA);
-      Serial.println("Subscribed to OTA topic");
-    } 
-    else {
-      Serial.print("That bai, rc=");
-      Serial.println(client.state());
-      delay(3000);
-    }
+bool reconnectMQTT() {
+  if (client.connected()) return true;
+
+  Serial.println("[MQTT] Dang reconnect...");
+
+  String clientId = "ESP32-" + String(random(0xffff), HEX);
+
+  if (client.connect(clientId.c_str(), MQTT_USER, MQTT_PASSWORD)) {
+    Serial.println("Thanh cong!");
+    client.subscribe(TOPIC_CONTROL);
+    client.subscribe(TOPIC_OTA);
+    Serial.println("Subscribed to OTA topic");
+    return true;
+  } else {
+    Serial.print("[MQTT] Loi, rc=");
+    Serial.println(client.state());
+    return false;
+  }
+
+}
+
+void ensureWiFi() {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("[WiFi] Mat ket noi! Reconnect...");
+    WiFi.reconnect();
   }
 }
 
-// ======================== 5. MAIN SETUP ========================
+// ======================== MAIN SETUP ========================
 void setup() {
   Serial.begin(115200);
 
@@ -226,7 +260,11 @@ void setup() {
   // Xóa cấu hình WiFi nếu cần reset:
   //wm.resetSettings();
 
+  Serial.println("START SETUP...");
+
   bool res = wm.autoConnect("ESP32_Setup", "12345678");
+
+  Serial.println("SAU AUTO CONNECT");
 
 
   if (!res) {
@@ -259,12 +297,24 @@ void setup() {
   particleSensor.setPulseAmplitudeRed(0x1F);
   particleSensor.setPulseAmplitudeIR(0x1F);
 
+  reconnectMQTT();
+
   Serial.println("HE THONG DA SAN SANG!");
 }
 
 // ======================== 6. MAIN LOOP ========================
+
 void loop() {
-  if (!client.connected()) mqttReconnect();
+
+  if (millis() - lastWiFiReconnect > 3000) {
+    lastWiFiReconnect = millis();
+    ensureWiFi();
+  }
+
+  if (!client.connected() && millis() - lastMQTTReconnect > 3000) {
+    lastMQTTReconnect = millis();
+    reconnectMQTT();
+  }
   client.loop();
 
   if (otaInProgress) {
