@@ -7,6 +7,8 @@
 #include "heartRate.h"
 #include <ArduinoJson.h> 
 #include <WiFiManager.h>
+#include <HTTPUpdate.h>
+#include <HTTPClient.h>
 
 // ======================== 1. MQTT CONFIG ========================
 const char* MQTT_SERVER = "d2c7e1d6b7ff4636af82a88c157ff0a5.s1.eu.hivemq.cloud";
@@ -17,6 +19,8 @@ const char* MQTT_PASSWORD = "Abc123456";
 const char* DEVICE_SERIAL = "ESP32-001";
 const char* TOPIC_DATA = "health/data";
 const char* TOPIC_CONTROL = "health/control";
+const char* TOPIC_OTA = "health/ota";
+const char* TOPIC_OTA_STATUS = "health/ota_status";
 
 #define LED_PIN 2 
 
@@ -36,10 +40,132 @@ float avgBpm = 0;
 
 unsigned long lastPrint = 0;
 const unsigned long PRINT_INTERVAL = 5000;
+bool otaInProgress = false;
+
+// ======================== GỬI TRẠNG THÁI OTA ========================
+void sendOTAStatus(int progress, const char* status, const char* reason = "") {
+  StaticJsonDocument<256> doc;
+  doc["device_serial"] = DEVICE_SERIAL;
+  doc["progress"] = progress;
+  doc["status"] = status;
+  doc["reason"] = reason;
+  
+  char buffer[256];
+  serializeJson(doc, buffer);
+  
+  client.publish(TOPIC_OTA_STATUS, buffer);
+  Serial.print("[OTA STATUS] ");
+  Serial.println(buffer);
+}
+
+// ======================== HTTP OTA UPDATE ========================
+void performHTTPOTA(const char* firmwareURL) {
+  Serial.println("\n========================================");
+  Serial.println("[HTTP OTA] BAT DAU CAP NHAT FIRMWARE");
+  Serial.print("[HTTP OTA] URL: ");
+  Serial.println(firmwareURL);
+  Serial.println("========================================");
+  
+  otaInProgress = true;
+  
+  sendOTAStatus(5, "downloading", "Ket noi server");
+  
+  WiFiClient updateClient;
+  
+  // Callback theo dõi tiến trình
+  httpUpdate.onProgress([](int current, int total) {
+    int progress = (current * 100) / total;
+    
+    // Gửi status mỗi 10%
+    static int lastReported = -1;
+    if (progress / 10 != lastReported / 10) {
+      lastReported = progress;
+      
+      if (progress <= 50) {
+        sendOTAStatus(progress, "downloading", "Dang tai firmware");
+        Serial.print("[HTTP OTA] Download: ");
+      } else {
+        sendOTAStatus(progress, "updating", "Dang ghi firmware");
+        Serial.print("[HTTP OTA] Writing: ");
+      }
+      Serial.print(progress);
+      Serial.println("%");
+    }
+  });
+  
+  // Thực hiện HTTP update
+  Serial.println("[HTTP OTA] Bat dau download...");
+  t_httpUpdate_return ret = httpUpdate.update(updateClient, firmwareURL);
+  
+  switch (ret) {
+    case HTTP_UPDATE_FAILED:
+      Serial.println("\n[HTTP OTA] THAT BAI!");
+      Serial.printf("Error (%d): %s\n", 
+                    httpUpdate.getLastError(), 
+                    httpUpdate.getLastErrorString().c_str());
+      sendOTAStatus(0, "error", httpUpdate.getLastErrorString().c_str());
+      break;
+      
+    case HTTP_UPDATE_NO_UPDATES:
+      Serial.println("[HTTP OTA] Khong co update");
+      sendOTAStatus(0, "error", "Khong co update");
+      break;
+      
+    case HTTP_UPDATE_OK:
+      Serial.println("\n[HTTP OTA] THANH CONG!");
+      sendOTAStatus(100, "success", "Cap nhat thanh cong");
+      delay(1000);
+      Serial.println("[HTTP OTA] Dang khoi dong lai...");
+      ESP.restart();
+      break;
+  }
+  
+  otaInProgress = false;
+}
 
 // ======================== 3. CALLBACK MQTT ========================
 void callback(char* topic, byte* payload, unsigned int length) {
   String messageTemp;
+
+  // XỬ LÝ LỆNH OTA
+  if (String(topic) == TOPIC_OTA) {
+    Serial.println("\n[OTA] NHAN LENH CAP NHAT FIRMWARE!");
+    
+    for (unsigned int i = 0; i < length; i++) {
+      messageTemp += (char)payload[i];
+    }
+    
+    StaticJsonDocument<512> doc;
+    DeserializationError error = deserializeJson(doc, messageTemp);
+
+    if (error) {
+      Serial.print("[OTA] LOI JSON: ");
+      Serial.println(error.c_str());
+      sendOTAStatus(0, "error", "Loi JSON");
+      return;
+    }
+
+    const char* target_serial = doc["device_serial"];
+    const char* command = doc["command"];
+    const char* firmware_url = doc["firmware_url"];
+
+    if (strcmp(target_serial, DEVICE_SERIAL) == 0) {
+      if (strcmp(command, "START_OTA") == 0) {
+        if (firmware_url && strlen(firmware_url) > 0) {
+          Serial.print("[OTA] Firmware URL: ");
+          Serial.println(firmware_url);
+          
+          // Thực hiện HTTP OTA
+          performHTTPOTA(firmware_url);
+        } else {
+          Serial.println("[OTA] KHONG CO URL!");
+          sendOTAStatus(0, "error", "Khong co URL");
+        }
+      }
+    }
+    return;
+  }
+  
 
   for (int i = 0; i < length; i++) {
     messageTemp += (char)payload[i];
@@ -53,8 +179,14 @@ void callback(char* topic, byte* payload, unsigned int length) {
     const char* command = doc["command"];
 
     if (strcmp(target_serial, DEVICE_SERIAL) == 0) {
-      if (strcmp(command, "LED_ON") == 0) digitalWrite(LED_PIN, HIGH);
-      if (strcmp(command, "LED_OFF") == 0) digitalWrite(LED_PIN, LOW);
+      if (strcmp(command, "LED_ON") == 0) {
+        digitalWrite(LED_PIN, HIGH);
+        Serial.println(">>BAT DEN<<");
+      }
+      else if (strcmp(command, "LED_OFF") == 0) {
+        digitalWrite(LED_PIN, LOW);
+        Serial.println(">>TAT DEN<<");
+      }
     }
   }
 }
@@ -69,7 +201,10 @@ void mqttReconnect() {
     if (client.connect(clientId.c_str(), MQTT_USER, MQTT_PASSWORD)) {
       Serial.println("Thanh cong!");
       client.subscribe(TOPIC_CONTROL);
-    } else {
+      client.subscribe(TOPIC_OTA);
+      Serial.println("Subscribed to OTA topic");
+    } 
+    else {
       Serial.print("That bai, rc=");
       Serial.println(client.state());
       delay(3000);
@@ -98,7 +233,8 @@ void setup() {
     Serial.println("Ket noi WiFi that bai! Reset...");
     delay(3000);
     ESP.restart();
-  } else {
+  } 
+  else {
     Serial.println("WiFi da ket noi!");
     Serial.print("SSID hien tai: ");
     Serial.println(WiFi.SSID());
@@ -130,6 +266,11 @@ void setup() {
 void loop() {
   if (!client.connected()) mqttReconnect();
   client.loop();
+
+  if (otaInProgress) {
+    delay(100);
+    return;
+  }
 
   // ADXL345
   sensors_event_t event;
@@ -165,7 +306,7 @@ void loop() {
     avgBpm = 0;
   }
 
-  // Gửi dữ liệu MQTT mỗi 1 giây
+  // Gửi dữ liệu MQTT mỗi 5 giây
   if (millis() - lastPrint >= PRINT_INTERVAL) {
     lastPrint = millis();
 
