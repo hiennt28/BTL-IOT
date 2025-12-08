@@ -93,6 +93,9 @@ void performHTTPOTA(const char* firmwareURL) {
       }
       Serial.print(progress);
       Serial.println("%");
+      if(progress==100){
+        Serial.println("\n[HTTP OTA] THANH CONG!");
+        sendOTAStatus(100, "success", "Cap nhat thanh cong");
     }
   });
   
@@ -190,6 +193,15 @@ void callback(char* topic, byte* payload, unsigned int length) {
       else if (strcmp(command, "LED_OFF") == 0) {
         digitalWrite(LED_PIN, LOW);
         Serial.println(">>> TAT DEN <<<");
+      }
+      else if (strcmp(command, "RESET_WIFI") == 0) {
+        Serial.println("Reset WiFi");
+        WiFi.disconnect(true, true);
+        delay(200);
+        WiFiManager wm;
+        wm.resetSettings();
+        delay(1000);
+        ESP.restart();
       }
     }
   }
