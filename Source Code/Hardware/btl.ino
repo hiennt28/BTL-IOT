@@ -121,7 +121,7 @@ void performHTTPOTA(const char* firmwareURL) {
 
       unsigned long start = millis();
       while (millis() - start < 1500) {
-          client.loop();   // bắt buộc
+          client.loop();
           delay(10);
       }
 
@@ -217,6 +217,8 @@ void callback(char* topic, byte* payload, unsigned int length) {
 // ======================== WIFI + MQTT RECONNECT ========================
 unsigned long lastMQTTReconnect = 0;
 unsigned long lastWiFiReconnect = 0;
+unsigned long wifiLostAt = 0;
+
 
 bool reconnectMQTT() {
   if (client.connected()) return true;
@@ -239,12 +241,44 @@ bool reconnectMQTT() {
 
 }
 
+
 void ensureWiFi() {
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("[WiFi] Mat ket noi! Reconnect...");
+  if (WiFi.status() == WL_CONNECTED) {
+    wifiLostAt = 0;  // reset bộ đếm khi có mạng
+    return;
+  }
+
+  // Nếu bắt đầu mất mạng → lưu thời điểm
+  if (wifiLostAt == 0) {
+    wifiLostAt = millis();
+    Serial.println("[WiFi] Mat ket noi! Dang thu reconnect...");
     WiFi.reconnect();
+    return;
+  }
+
+  // Nếu mất mạng quá 10 giây → mở WiFiManager lại
+  if (millis() - wifiLostAt > 10000) {
+    Serial.println("\n===== WIFI MAT LAU — MO WIFIMANAGER =====");
+
+    WiFi.disconnect(true, true);
+    delay(500);
+
+    WiFiManager wm;
+    wm.resetSettings();                 
+    wm.setConfigPortalTimeout(120);     
+
+    bool res = wm.startConfigPortal("ESP32_Setup", "12345678");
+
+    if (!res) {
+      Serial.println("[WiFi] Config portal failed, reboot...");
+      ESP.restart();
+    }
+
+    Serial.println("[WiFi] Ket noi moi thanh cong!");
+    wifiLostAt = 0;
   }
 }
+
 
 // ======================== MAIN SETUP ========================
 void setup() {
@@ -259,13 +293,9 @@ void setup() {
 
   // Xóa cấu hình WiFi nếu cần reset:
   //wm.resetSettings();
-
   Serial.println("START SETUP...");
-
   bool res = wm.autoConnect("ESP32_Setup", "12345678");
-
   Serial.println("SAU AUTO CONNECT");
-
 
   if (!res) {
     Serial.println("Ket noi WiFi that bai! Reset...");
