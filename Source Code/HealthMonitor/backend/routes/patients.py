@@ -1,17 +1,9 @@
 # routes/patients.py
 from flask import Blueprint, jsonify, request
 from db import get_db_connection
-import paho.mqtt.client as mqtt
-import json
-import ssl
-import time
-
-# CẤU HÌNH MQTT 
-MQTT_BROKER = "8c9b9eafe2434729af707f153e31a91f.s1.eu.hivemq.cloud"
-MQTT_USER = "nhom5"
-MQTT_PASSWORD = "Abc123456"
-MQTT_PORT = 8883
-MQTT_CONTROL_TOPIC = "health/control"
+import json 
+from mqtt_listenner import client, MQTT_CONTROL_TOPIC
+# Không cần datetime ở đây nữa vì đã tính trong SQL
 
 patients_bp = Blueprint('patients', __name__)
 
@@ -21,6 +13,9 @@ def get_patient(patient_id):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
+    # SỬA ĐỔI QUAN TRỌNG:
+    # Thêm hàm TIMESTAMPDIFF(SECOND, dev.last_seen, NOW()) để MySQL tự tính số giây trôi qua
+    # Điều này giúp tránh lỗi lệch múi giờ giữa Python và MySQL
     cursor.execute("""
         SELECT p.*, d.full_name as doctor_name, 
                dev.device_serial, dev.status as device_status, dev.is_measuring, dev.last_seen,
@@ -39,9 +34,12 @@ def get_patient(patient_id):
     if not patient:
         return jsonify({"message": "Không tìm thấy bệnh nhân!"}), 404
 
-    # Logic kiểm tra Online/Offline
+    # === LOGIC KIỂM TRA ONLINE/OFFLINE MỚI ===
     if patient.get('device_serial'):
         seconds = patient.get('seconds_since_seen')
+        
+        # Nếu không có last_seen hoặc đã quá 15 giây không thấy tin hiệu -> Offline
+        # (Giảm xuống 15s để bạn test nhanh hơn)
         if seconds is None or seconds > 15: 
             patient['device_status'] = 'offline'
         else:
@@ -49,7 +47,7 @@ def get_patient(patient_id):
 
     return jsonify(patient)
 
-# Cập nhật thông tin cá nhân
+# Cập nhật thông tin cá nhân (Giữ nguyên)
 @patients_bp.route('/update/<int:patient_id>', methods=['PUT'])
 def update_patient(patient_id):
     data = request.get_json()
@@ -75,7 +73,7 @@ def update_patient(patient_id):
 
     return jsonify({"message": "Cập nhật thông tin thành công!"})
 
-# API Bật/Tắt chế độ đo
+# API Bật/Tắt chế độ đo (Giữ nguyên)
 @patients_bp.route('/<int:patient_id>/device/control', methods=['POST'])
 def control_device(patient_id):
     data = request.get_json()
@@ -105,17 +103,10 @@ def control_device(patient_id):
         print(e)
         return jsonify({"success": False, "message": "Lỗi server"}), 500
 
-# === API MỚI: CẤU HÌNH WIFI ===
+
 @patients_bp.route('/<int:patient_id>/device/wifi-config', methods=['POST'])
 def config_wifi(patient_id):
-    print(f"\n--- [DEBUG] Bắt đầu cấu hình Wifi cho Patient ID: {patient_id} ---")
-    
-    data = request.get_json()
-    ssid = data.get('ssid')
-    password = data.get('password', '')
-
-    if not ssid:
-        return jsonify({"success": False, "message": "Vui lòng nhập tên Wifi"}), 400
+    print(f"\n--- [DEBUG] Bắt đầu setup lại Wifi cho Patient ID: {patient_id} ---")
 
     conn = get_db_connection()
     if not conn:
@@ -144,63 +135,22 @@ def config_wifi(patient_id):
 
     # Gửi lệnh qua MQTT
     try:
-        payload = json.dumps({
+        payload = {
             "device_serial": device_serial,
-            "command": "UPDATE_WIFI",
-            "ssid": ssid,
-            "password": password
-        })
+            "command": "RESET_WIFI",
+        }
+        result = client.publish(MQTT_CONTROL_TOPIC, json.dumps(payload), qos=1)
+        result.wait_for_publish()
         
-        # --- CẤU HÌNH MQTT CLIENT  ---
-        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-        client.username_pw_set(MQTT_USER, MQTT_PASSWORD)
-      
-        client.tls_set(cert_reqs=ssl.CERT_NONE, tls_version=ssl.PROTOCOL_TLS)
-        
-        # Biến cờ để kiểm tra kết nối
-        connection_flag = False
-
-        def on_connect(client, userdata, flags, rc, properties=None):
-            nonlocal connection_flag
-            if rc == 0:
-                print("--- [MQTT] Kết nối thành công! ---")
-                connection_flag = True
-            else:
-                print(f"--- [MQTT] Kết nối thất bại, mã lỗi: {rc} ---")
-
-        client.on_connect = on_connect
-
-        print(f"--- [DEBUG] Đang kết nối tới {MQTT_BROKER}... ---")
-        client.connect(MQTT_BROKER, MQTT_PORT, 60)
-        
-        client.loop_start() # Bắt đầu luồng nền
-        
-        # Đợi tối đa 5 giây để kết nối
-        wait_time = 0
-        while not connection_flag and wait_time < 50:
-            time.sleep(0.1)
-            wait_time += 1
-            
-        if not connection_flag:
-            print("--- [ERROR] Timeout: Không thể kết nối MQTT Broker ---")
-            client.loop_stop()
-            return jsonify({"success": False, "message": "Không thể kết nối Server MQTT"}), 500
-
-        # Publish tin nhắn
-        print("--- [DEBUG] Đang gửi tin nhắn... ---")
-        info = client.publish(MQTT_CONTROL_TOPIC, payload, qos=1)
-        info.wait_for_publish(timeout=3) # Đợi xác nhận gửi đi
-
-        if info.is_published():
-            print(f"--- [SUCCESS] Đã gửi lệnh: {payload} ---")
-            client.loop_stop()
-            client.disconnect()
-            return jsonify({"success": True, "message": "Đã gửi lệnh cập nhật Wifi xuống thiết bị!"})
+        if result.rc == 0:
+            print("Đã gửi lệnh reset wifi qua mqtt")
+            return jsonify({
+                "success": "True", 
+                "message": "Đã reset wifi"
+            })
         else:
-            print("--- [ERROR] Gửi thất bại (Timeout) ---")
-            client.loop_stop()
-            client.disconnect()
-            return jsonify({"success": False, "message": "Gửi lệnh thất bại (Timeout)"}), 500
+            print(f"Lỗi rc={result.rc}")
+            return jsonify({"success": False, "message": f"MQTT error: {result.rc}"}), 500
 
     except Exception as e:
         print(f"--- [ERROR] Exception: {str(e)} ---")

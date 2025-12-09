@@ -4,6 +4,7 @@ function formatDate(dateString) {
     if (!dateString) return '';
     try {
         const date = new Date(dateString);
+        // Dùng getUTC... để lấy giá trị gốc từ server, không cho trình duyệt tự cộng giờ
         const day = String(date.getUTCDate()).padStart(2, '0');
         const month = String(date.getUTCMonth() + 1).padStart(2, '0');
         const year = date.getUTCFullYear();
@@ -74,15 +75,15 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     let updateInfoModal = null;
     let changePasswordModal = null;
-    let wifiModal = null; // Modal Wifi Mới
+    let resetWifiModal = null;
     
     try {
         const updateEl = document.getElementById('updateInfoModal');
         if(updateEl) updateInfoModal = new bootstrap.Modal(updateEl);
         const passEl = document.getElementById('changePasswordModal');
         if(passEl) changePasswordModal = new bootstrap.Modal(passEl);
-        const wifiEl = document.getElementById('wifiModal'); // Init Wifi Modal
-        if(wifiEl) wifiModal = new bootstrap.Modal(wifiEl);
+        const wifiEl = document.getElementById('resetWifiModal');
+        if(wifiEl) resetWifiModal = new bootstrap.Modal(wifiEl);
     } catch(e) { console.error(e); }
 
     const updateInfoBtn = document.getElementById("update-info-btn");
@@ -143,37 +144,27 @@ document.addEventListener("DOMContentLoaded", async () => {
             } catch(err) { alert("Lỗi máy chủ"); }
         });
     }
-    
-    // === XỬ LÝ CẤU HÌNH WIFI ===
-    const saveWifiBtn = document.getElementById("saveWifiBtn");
-    if(saveWifiBtn) {
-        saveWifiBtn.addEventListener("click", async () => {
-            const ssid = document.getElementById("wifiSSID").value;
-            const pass = document.getElementById("wifiPass").value;
-            
-            if(!ssid) { alert("Vui lòng nhập tên Wifi!"); return; }
 
+    const resetWifiBtn = document.getElementById("reset-wifi-btn");
+    if(resetWifiBtn) {
+        resetWifiBtn.addEventListener("click", () => {
+            if(resetWifiModal) resetWifiModal.show();
+        });
+    }
+
+    const saveNewWifiBtn = document.getElementById("saveNewWifiBtn");
+    if(saveNewWifiBtn) {
+        saveNewWifiBtn.addEventListener("click", async () => {
+            
             try {
-                const res = await fetch(`/api/patients/${patientId}/device/wifi-config`, {
-                    method: "POST",
-                    headers: {"Content-Type": "application/json"},
-                    body: JSON.stringify({ ssid: ssid, password: pass })
+                const res = await fetch(`/api/patients/${patientId}/device/wifi-config`, { 
+                    method:"POST", headers:{"Content-Type":"application/json"}, 
+                    body: JSON.stringify({ }) 
                 });
-                
                 const data = await res.json();
-                
-                if(res.ok) {
-                    alert(data.message);
-                    if(wifiModal) wifiModal.hide();
-                    document.getElementById("wifiSSID").value = ""; // Reset form
-                    document.getElementById("wifiPass").value = "";
-                } else {
-                    alert("Lỗi: " + data.message);
-                }
-            } catch(err) {
-                console.error(err);
-                alert("Lỗi kết nối server!");
-            }
+                alert(data.message);
+                if(data.success && resetWifiModal) resetWifiModal.hide();
+            } catch(err) { alert("Lỗi máy chủ"); }
         });
     }
 
@@ -283,11 +274,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         const btnStart = document.getElementById("btn-start-measure");
         const btnStop = document.getElementById("btn-stop-measure");
         const statusText = document.getElementById("measuring_status_text");
-        const wifiBtn = document.querySelector("[data-bs-target='#wifiModal']"); // Nút wifi
-
         if(btnStart) btnStart.disabled = true;
         if(btnStop) btnStop.disabled = true;
-        if(wifiBtn) wifiBtn.disabled = true; // Khóa nút wifi nếu chưa có thiết bị
         if(statusText) statusText.innerText = "KHÔNG CÓ THIẾT BỊ";
     }
 
@@ -444,4 +432,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         loadLatestHealth(); 
         loadPatientInfo();  
     }, 3000);
+
+    
 });

@@ -245,7 +245,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             if(!res.ok) return;
             const data = await res.json();
 
-        
+            // --- SỬA LỖI IR ---
+            // Đảm bảo ID trong HTML là ir_val và dữ liệu từ API là ir_value
             if(document.getElementById('bpm_val')) document.getElementById('bpm_val').innerText = formatValue(data.bpm);
             if(document.getElementById('ir_val')) document.getElementById('ir_val').innerText = formatValue(data.ir_value);
             if(document.getElementById('accel_x_val')) document.getElementById('accel_x_val').innerText = formatValue(data.accel_x);

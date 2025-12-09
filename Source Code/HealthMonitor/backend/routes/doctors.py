@@ -88,13 +88,13 @@ def get_alerts(doctor_id):
         print("Error fetching alerts:", str(e))
         return jsonify({"message": "Lỗi khi lấy cảnh báo!"}), 500
 
-# API: Lấy dữ liệu sức khỏe mới nhất của bệnh nhân 
+# API: Lấy dữ liệu sức khỏe mới nhất của bệnh nhân (ĐÃ CẬP NHẬT - GIỮ LẠI PHIÊN BẢN MỚI NHẤT)
 @doctors_bp.route('/health/latest/<int:patient_id>', methods=['GET'])
 def latest_health(patient_id):
     try:
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
-      
+        # Đã thêm ir_value vào câu lệnh SELECT
         cursor.execute("""
             SELECT bpm, avg_bpm, ir_value, accel_x, accel_y, accel_z, a_total, timestamp
             FROM HealthData
